@@ -1,2 +1,3 @@
-# kits-sso
-Kits SSO - generador de kits de prevención
+# Kits SSO
+
+Aplicación web para generar kits de prevención (mapa, MIPER, procedimiento y trazabilidad). Requiere usuario y contraseña.

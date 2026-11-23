@@ -1,0 +1,968 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<script>window.KITSSO_API = "https://script.google.com/macros/s/AKfycbwcSuYYfxo0bbSlAdjBjUzMQgeGX3YmbDp4SG_INcmQHPqI3-2CF9RQIQvne8NVPyyjTQ/exec";</script>
+<script src="shim.js"></script>
+</head><body>
+<title>Kits SSO</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">
+<style>
+/* Layout: barra lateral de navegación + área de trabajo; en teléfono la barra pasa arriba. Colores de faena: grafito y naranja de seguridad. */
+:root{
+  --bg:#F3F4F6; --panel:#FFFFFF; --ink:#111827; --muted:#4B5563; --line:#E2E5EA;
+  --nav:#141C27; --nav-ink:#DDE3EA; --nav-sub:#8F9BAA;
+  --accent:#C2410C; --accent-ink:#FFFFFF; --accent-soft:#FFF1E8; --accent-text:#9A3412;
+  --ok:#067647; --ok-soft:#ECFDF3; --warn:#93370D; --warn-soft:#FFFAEB; --bad:#B42318; --bad-soft:#FEF3F2;
+  --f-display:'Space Grotesk',system-ui,sans-serif; --f-body:Inter,system-ui,-apple-system,'Segoe UI',sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E131A; --panel:#161D27; --ink:#E8ECF1; --muted:#A3ADBA; --line:#283241;
+  --nav:#0A0F15; --nav-ink:#DDE3EA; --nav-sub:#8391A2;
+  --accent:#F97316; --accent-ink:#1A0E05; --accent-soft:#2A1A10; --accent-text:#FDBA74;
+  --ok:#6CE9A6; --ok-soft:#0F2A1D; --warn:#FEC84B; --warn-soft:#2B2210; --bad:#FDA29B; --bad-soft:#2D1513; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E131A; --panel:#161D27; --ink:#E8ECF1; --muted:#A3ADBA; --line:#283241;
+  --nav:#0A0F15; --nav-ink:#DDE3EA; --nav-sub:#8391A2;
+  --accent:#F97316; --accent-ink:#1A0E05; --accent-soft:#2A1A10; --accent-text:#FDBA74;
+  --ok:#6CE9A6; --ok-soft:#0F2A1D; --warn:#FEC84B; --warn-soft:#2B2210; --bad:#FDA29B; --bad-soft:#2D1513; color-scheme:dark}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--f-body)}
+*{box-sizing:border-box}
+button,input,textarea,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.app{display:flex;flex-wrap:wrap;min-height:100%}
+nav.side{flex:1 1 230px;max-width:100%;background:var(--nav);color:var(--nav-ink);padding-block:22px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:16px;display:flex;flex-direction:column;gap:20px}
+.brand{display:flex;gap:12px;align-items:center}
+.brand .mk{width:38px;height:38px;border-radius:9px;background:#F97316;display:grid;place-items:center;flex:none}
+.brand b{font-family:var(--f-display);font-size:18px;color:#fff;display:block}
+.brand small{color:var(--nav-sub);font-size:12px}
+.navlist{display:flex;flex-direction:column;gap:4px}
+.navlist button{all:unset;cursor:pointer;padding:10px 12px;border-radius:9px;display:flex;flex-direction:column}
+.navlist button span{font-weight:600}
+.navlist button small{font-size:12px;opacity:.7}
+.navlist button[aria-current="page"]{background:#243142;color:#fff}
+.navlist button:hover{background:#1C2735}
+.side .foot{margin-top:auto;font-size:12px;color:var(--nav-sub);line-height:1.5}
+.side .foot button{all:unset;cursor:pointer;color:#FDBA74;font-weight:600}
+main{flex:999 1 560px;min-width:0;padding-block:28px;padding-left:clamp(16px,3vw,40px);padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:20px}
+h1{font-family:var(--f-display);font-size:30px;letter-spacing:-.4px;margin:2px 0 0;text-wrap:balance}
+h2{font-size:17px;margin:0}
+.eyebrow{font-size:12px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--accent-text)}
+.sub{color:var(--muted);font-size:13px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.between{justify-content:space-between}
+.btn{height:42px;padding:0 16px;border-radius:10px;border:1px solid var(--line);background:var(--panel);font-weight:600;cursor:pointer}
+.btn.pri{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.btn:disabled{opacity:.55;cursor:default}
+.btn.sm{height:32px;padding:0 10px;font-size:13px}
+label.f{display:flex;flex-direction:column;gap:5px;font-size:13px;font-weight:600;min-width:0}
+input.in,textarea.in,select.in{border:1px solid var(--line);border-radius:10px;padding:9px 11px;background:var(--bg);font-weight:400;min-width:0;width:100%}
+textarea.in{resize:vertical;line-height:1.55}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;align-items:end}
+label.f{white-space:nowrap}label.f>*{white-space:normal}
+.chip{display:inline-flex;align-items:center;padding:3px 9px;border-radius:999px;font-size:12px;font-weight:600;background:var(--accent-soft);color:var(--accent-text)}
+.chip.g{background:var(--ok-soft);color:var(--ok)}.chip.w{background:var(--warn-soft);color:var(--warn)}.chip.b{background:var(--bad-soft);color:var(--bad)}.chip.n{background:var(--bg);color:var(--muted);border:1px solid var(--line)}
+.steps{display:flex;gap:6px;flex-wrap:wrap;list-style:none;margin:0;padding:0}
+.steps li{padding:6px 12px;border-radius:999px;border:1px solid var(--line);font-size:13px;font-weight:600;color:var(--muted)}
+.steps li.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.steps li.done{color:var(--ok);border-color:var(--ok)}
+.task{border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.task .hd{display:flex;gap:10px;align-items:flex-start}
+.task .num{font-weight:700;color:var(--muted);min-width:28px;padding-top:9px;font-variant-numeric:tabular-nums}
+.task .hd input{flex:1}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:6px 16px;font-size:13px;color:var(--muted)}
+.kv b{color:var(--ink);font-weight:600}
+.note{border-radius:12px;padding:12px 14px;font-size:13px;line-height:1.6}
+.note.w{background:var(--warn-soft);color:var(--warn)}.note.b{background:var(--bad-soft);color:var(--bad)}.note.g{background:var(--ok-soft);color:var(--ok)}
+.note ul{margin:4px 0 0;padding-left:18px}
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+table.t{border-collapse:collapse;width:100%;font-size:12.5px;min-width:900px}
+table.t th{background:var(--nav);color:#fff;text-align:left;padding:7px 8px;font-weight:600;position:sticky;top:0}
+table.t td{border-top:1px solid var(--line);padding:7px 8px;vertical-align:top}
+table.t td.c{text-align:center;font-variant-numeric:tabular-nums}
+.lv{font-weight:700;font-size:11px;padding:2px 6px;border-radius:6px;white-space:nowrap}
+.lv.TOLERABLE,.lv.BAJO,.lv.SRE{background:var(--ok-soft);color:var(--ok)}
+.lv.MODERADO,.lv.MEDIO,.lv.NIVEL2,.lv.NIVEL1{background:var(--warn-soft);color:var(--warn)}
+.lv.IMPORTANTE,.lv.ALTO,.lv.NIVEL3{background:var(--accent-soft);color:var(--accent-text)}
+.lv.INTOLERABLE,.lv.NIVEL4,.lv.CRE{background:var(--bad-soft);color:var(--bad)}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.tabs button{all:unset;cursor:pointer;padding:9px 14px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent}
+.tabs button[aria-selected="true"]{color:var(--ink);border-color:var(--accent)}
+.busy{display:flex;gap:12px;align-items:center;padding:14px;border-radius:12px;background:var(--accent-soft);color:var(--accent-text);font-weight:600}
+.spin{width:18px;height:18px;border-radius:50%;border:3px solid currentColor;border-right-color:transparent;animation:sp 1s linear infinite;flex:none}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation:none}}
+.empresas{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
+.emp{all:unset;cursor:pointer;display:flex;flex-direction:column;gap:6px;padding:20px;border-radius:16px;background:var(--panel);border:1px solid var(--line);min-height:150px}
+.emp.on{border:2px solid var(--accent)}
+.emp.off{cursor:default;opacity:.7;border-style:dashed}
+.emp b{font-family:var(--f-display);font-size:20px}
+.kitrow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:12px 0;border-top:1px solid var(--line)}
+.kitrow:first-child{border-top:0}
+.doc h3{font-size:13px;margin:14px 0 4px;text-transform:uppercase}
+.doc p,.doc li{font-size:13px;line-height:1.55}
+.doc .ero{color:var(--muted);font-size:12px}
+.muted{color:var(--muted)}
+.qs{display:flex;flex-direction:column;gap:10px}
+.q{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;padding:10px 0;border-top:1px solid var(--line)}
+.q:first-child{border-top:0}
+</style>
+
+<div class="app">
+  <nav class="side" aria-label="Menú">
+    <div class="brand">
+      <div class="mk" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#141C27" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg></div>
+      <div><b>Kits SSO</b><small id="empLabel">BERLIAM · Codelco DRT</small></div>
+    </div>
+    <div class="navlist" id="nav"></div>
+    <div class="foot" id="navFoot"></div>
+  </nav>
+  <main id="main" aria-live="polite"></main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="data.js"></script>
+<script src="miper_oficial.js"></script>
+<script src="mapa.js"></script>
+<script src="traz.js"></script>
+<script src="mapa_oficial.js"></script>
+<script src="imagenes_proc.js"></script>
+<script>
+(function(){
+'use strict';
+const D = window.KITDATA;
+const $main = document.getElementById('main');
+const S = { view: 'panel', empresa: 'berliam', contrato: null, kits: [], cur: null, step: 1, tab: 'miper', busy: null, err: null };
+let db = null, sample = null, downloads = null, ctl = null;
+
+/* ---------- utilidades de DOM (todo texto entra como textContent) ---------- */
+function h(tag, attrs, ...kids){
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})){
+    if (v == null || v === false) continue;
+    if (k === 'class') el.className = v;
+    else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+    else if (k === 'text') el.textContent = v;
+    else el.setAttribute(k, v === true ? '' : v);
+  }
+  for (const c of kids.flat()){ if (c == null || c === false) continue; el.append(c instanceof Node ? c : document.createTextNode(String(c))); }
+  return el;
+}
+const uid = () => Math.random().toString(36).slice(2, 10);
+const NIVEL = v => ({1:'TOLERABLE',2:'TOLERABLE',4:'MODERADO',8:'IMPORTANTE',16:'INTOLERABLE'})[v] || '';
+const num = x => { const n = Number(x); return [1,2,4].includes(n) ? n : null; };
+const lvClass = s => 'lv ' + String(s||'').replace(/\s+/g,'');
+const CODES = D.catalogo.map(c => c.cod);
+const RF_NOMBRES = {}; const rfNombres = () => { for (const k in RF_NOMBRES) delete RF_NOMBRES[k]; for (const [c,r] of Object.entries(D.rfcat)) RF_NOMBRES[c] = r.nombre; }; rfNombres();
+const rfAmbito = (r, f) => f === 'todos' ? true : f === 'declarados' ? !!r.declarado : (r.ambito||[]).includes(f);
+
+/* ---------- capacidades ---------- */
+(async () => {
+  if (!window.claude) return;
+  [db, sample, downloads] = await Promise.all(['db','sample','downloads'].map(n => window.claude.use(n).catch(() => null)));
+  if (db) db.collection('catalogo_rf').onSnapshot(snap => { for (const d of snap.docs){ const v = d.data(); if (v && v.codigo && Array.isArray(v.preventivos)) D.rfcat[v.codigo] = { ...v, titulo: v.nombre, editado: v.editado || 'db' }; } rfNombres(); if (S.view === 'biblioteca') render(); }, () => {});
+  if (db) db.collection('config').onSnapshot(snap => { const d = snap.docs.find(x => x.id === 'contrato'); S.contrato = d ? d.data() : null; if (S.view === 'contrato') render(); }, () => {});
+  if (db) db.collection('kits').onSnapshot(snap => { S.kits = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => (b.actualizado||'').localeCompare(a.actualizado||'')); if (S.view === 'panel') render(); }, () => {});
+  render();
+})();
+
+async function guardar(){
+  if (!db || !S.cur) return;
+  S.cur.actualizado = new Date().toISOString();
+  try {
+    // La MIPER y el procedimiento pueden pasar el máximo de 256 KB por documento: se guardan aparte, en trozos.
+    const o = JSON.parse(JSON.stringify(S.cur)); o._partes = {};
+    for (const parte of ['miper','proc','mapaB64']){
+      if (!o[parte]) continue;
+      const txt = JSON.stringify(o[parte]); const n = Math.ceil(txt.length / 80000);
+      for (let i = 0; i < n; i++) await db.doc('kitpartes/' + o.id + '__' + parte + '__' + i).set({ kit: o.id, parte, i, n, s: txt.slice(i*80000, (i+1)*80000) });
+      o._partes[parte] = n;
+      if (parte === 'mapaB64') o.mapaB64 = null; else if (parte === 'miper'){ o._mcodigos = [...new Set(o.miper.map(f => f.codigo))]; o.miper = { _aparte: true }; } else o.proc = { _aparte: true, bloqueo: o.proc.bloqueo || [] };
+    }
+    await db.doc('kits/' + o.id).set(o);
+  } catch (e) { S.err = 'No se pudo guardar el kit (' + (e.code || 'error') + '). Sigue disponible mientras no cierres la página.'; render(); }
+}
+
+/* ---------- navegación ---------- */
+function go(v){ S.view = v; S.err = null; render(); window.scrollTo(0,0); }
+function renderNav(){
+  const nav = document.getElementById('nav'); nav.textContent = '';
+  document.getElementById('empLabel').textContent = S.empresa ? 'BERLIAM · Codelco DRT' : 'Elige una empresa';
+  const foot = document.getElementById('navFoot'); foot.textContent = '';
+  if (!S.empresa) return;
+  const items = [['panel','Panel','Kits del contrato'],['nueva','Actividad nueva','Crear kit desde cero'],['biblioteca','Biblioteca','Riesgos de fatalidad y controles'],['contrato','Datos del contrato','Teléfonos y firmantes']];
+  for (const [v,l,s] of items) nav.append(h('button', { 'aria-current': (S.view === v || (v==='nueva' && S.view==='kit')) ? 'page' : null, onclick: () => { if (v==='nueva') nuevaActividad(); else go(v); } }, h('span',{text:l}), h('small',{text:s})));
+}
+function render(){
+  renderNav(); $main.textContent = '';
+  const v = S.view;
+  if (v === 'inicio') return vInicio();
+  if (v === 'panel') return vPanel();
+  if (v === 'kit') return vKit();
+  if (v === 'biblioteca') return vBiblio();
+  if (v === 'contrato') return vContrato();
+  if (v === 'mapa') return vMapa();
+}
+function banner(){
+  const out = [];
+  if (S.err) out.push(h('div',{class:'note b', role:'alert', text:S.err}));
+  if (S.aviso){ out.push(h('div',{class:'note g', role:'status', text:S.aviso})); S.aviso = null; }
+  if (!sample) out.push(h('div',{class:'note w', text:'El servicio de análisis no está disponible ahora. Recarga la página; si sigue, avisa al administrador.'}));
+  return out;
+}
+
+/* ---------- inicio: elegir empresa ---------- */
+function vInicio(){
+  $main.append(
+    h('div',{}, h('div',{class:'eyebrow',text:'Kits SSO'}), h('h1',{text:'¿Con qué empresa trabajas hoy?'}), h('p',{class:'sub',text:'Cada empresa entra a su propio espacio, con su marca, sus formatos y su forma de medir el riesgo.'})),
+    h('div',{class:'empresas'},
+      h('button',{class:'emp on', onclick:()=>{S.empresa='berliam'; go('panel');}}, h('span',{class:'chip',text:'Activa'}), h('b',{text:'BERLIAM'}), h('span',{class:'sub',text:'Codelco DRT · Mantenimiento Chancado Primario y Correas · Contrato 4600031257'}), h('span',{class:'muted',style:'font-size:12px',text:'SIGO-F-006 v7 · SIGO-F-011 · SIGO-G-012 · kit guía MH-0001'})),
+      h('div',{class:'emp off'}, h('span',{class:'chip n',text:'Próximamente'}), h('b',{text:'Nuevo cliente'}), h('span',{class:'sub',text:'Se configura su marca, formatos, matriz P×C, riesgos de fatalidad y kit guía antes de entregarle la app.'}))
+    ));
+}
+
+/* ---------- panel ---------- */
+function vPanel(){
+  $main.append(h('div',{class:'row between'},
+    h('div',{}, h('div',{class:'eyebrow',text:'Mantenimiento · Chancado Primario y Correas · Contrato 4600031257'}), h('h1',{text:'Kits del contrato'})),
+    h('div',{class:'row'}, h('label',{class:'btn',for:'fmapa',style:'display:inline-flex;align-items:center;cursor:pointer'},'Cargar mapa de procesos (.xlsx)'), h('input',{type:'file',id:'fmapa',accept:'.xlsx',style:'position:absolute;width:1px;height:1px;opacity:0',onchange:e=>cargarMapa(e.target.files[0])}), h('button',{class:'btn pri', onclick:nuevaActividad, text:'Crear kit nuevo'}))), ...banner());
+  const flujo = h('div',{class:'card'}, h('h2',{text:'Cómo se crea un kit'}),
+    h('ol',{class:'steps'}, ...['Describir la actividad','Listado con energías y RF','Visto bueno','MIPER y procedimiento','Descargar y firmar'].map((t,i)=>h('li',{text:(i+1)+'. '+t}))),
+    h('p',{class:'sub',text:'La app arma el borrador con el criterio de la prevencionista del área. Un prevencionista lo revisa y lo firma antes de usarlo en terreno.'}));
+  const lista = h('div',{class:'card'}, h('h2',{text:'Kits guardados'}));
+  if (!db) lista.append(h('p',{class:'sub',text:'Los kits se guardan cuando abres la app desde claude.ai.'}));
+  else if (!S.kits.length) lista.append(h('p',{class:'sub',text:'Todavía no hay kits. Crea el primero con "Crear kit nuevo": describe la actividad y la app arma el listado de tareas.'}));
+  else for (const k of S.kits){
+    const ft = datosTerreno(k).filter(x => !x.valor).length;
+    const est = k.proc && ft ? ['Faltan ' + ft + ' datos de terreno','w'] : k.proc ? ['Kit completo','g'] : k.miper ? ['MIPER lista','w'] : k.aprobado ? ['Listado aprobado','w'] : k.listado ? ['Listado por revisar','n'] : ['Borrador','n'];
+    lista.append(h('div',{class:'kitrow'},
+      h('div',{style:'min-width:0'}, h('b',{text:k.titulo || 'Actividad sin título'}), h('div',{class:'sub',text:(k.codigo||'Sin código') + ' · ' + ((k.listado&&k.listado.tareas)||[]).length + ' tareas · ' + new Date(k.actualizado||Date.now()).toLocaleDateString('es-CL')})),
+      h('div',{class:'row'}, h('span',{class:'chip '+est[1],text:est[0]}), h('button',{class:'btn sm',onclick:()=>abrir(k),text:'Abrir'}))));
+  }
+  $main.append(flujo, lista);
+}
+async function cargarPartes(k){
+  if (!db || !k._partes) return k;
+  for (const [parte, n] of Object.entries(k._partes)){
+    let txt = ''; for (let i = 0; i < n; i++){ const d = await db.doc('kitpartes/' + k.id + '__' + parte + '__' + i).get(); txt += (d.exists && d.data().s) || ''; }
+    try { k[parte] = JSON.parse(txt); } catch { k[parte] = null; }
+  }
+  delete k._partes; delete k._mcodigos; return k;
+}
+async function abrir(k){ S.cur = await cargarPartes(JSON.parse(JSON.stringify(k))); S.step = (k.proc || k.miper) ? 3 : k.listado ? 2 : 1; S.tab = 'miper'; go('kit'); }
+const FECHA = () => new Date().toLocaleDateString('es-CL',{month:'long',year:'numeric'});
+function siguienteCodigo(pref){
+  const re = new RegExp('^' + pref.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + '(\\d+)$'); let max = 0;
+  for (const k of S.kits){ const m = re.exec(String(k.codigo||'').trim()); if (m) max = Math.max(max, Number(m[1])); }
+  return pref + String(max + 1).padStart(4,'0');
+}
+function codigoRepetido(k){ return S.kits.find(x => x.id !== k.id && String(x.codigo||'').trim() && String(x.codigo).trim() === String(k.codigo||'').trim()); }
+function nuevaActividad(){
+  S.cur = { id: 'k' + Date.now().toString(36) + uid().slice(0,4), titulo:'', codigo: siguienteCodigo('VELTB-P-CRT208-MM-'), revision: 0, historial: [[0,'Confección de procedimiento','Todos',FECHA()]], area:'Chancado Primario', equipo:'', desc:'', dotacion:'', respuestas:{}, listado:null, aprobado:false, miper:null, proc:null };
+  S.step = 1; go('kit');
+}
+
+/* ---------- llamadas a Claude ---------- */
+const RAZONAMIENTO = `⟦S1⟧`;
+
+async function pedir(prompt, etiqueta, tier){
+  if (!sample) throw { code: 'unavailable' };
+  ctl = new AbortController();
+  S.busy = { t: etiqueta, n: 0 }; render();
+  try {
+    return await sample.json(prompt, { modelTier: tier || 'default', signal: ctl.signal, onText: ({ text }) => { if (S.busy){ S.busy.n = text.length; const el = document.getElementById('busyN'); if (el) el.textContent = 'Escribiendo… ' + text.length + ' caracteres'; } } });
+  } finally { S.busy = null; ctl = null; }
+}
+function errTexto(e){
+  const c = e && e.code;
+  if (c === 'cancelled') return null;
+  if (c === 'not_granted' || c === 'sampling_disabled') return 'Tu sesión venció. Recarga la página y vuelve a entrar.';
+  if (c === 'sin_clave') return 'El administrador aún no configura la clave del servicio de análisis.';
+  if (c === 'red') return 'Sin conexión con el servidor. Revisa tu internet e intenta de nuevo.';
+  if (/^api_5/.test(c||'') || c === 'error') return 'El servicio de análisis no respondió (' + c + '). Espera un momento y vuelve a intentarlo.';
+  if (c === 'rate_limited') return 'Se alcanzó el límite de uso por ahora. Espera unos minutos y vuelve a intentarlo.';
+  if (c === 'invalid_json') return 'La respuesta vino incompleta. Vuelve a intentarlo; si se repite, acorta la descripción.';
+  if (c === 'prompt_too_large') return 'La actividad tiene demasiadas tareas para un paso. Divide la actividad en dos kits.';
+  return 'No se pudo completar el análisis (' + (c || 'error') + '). Vuelve a intentarlo.';
+}
+
+async function analizar(){
+  const k = S.cur; S.err = null;
+  const resp = Object.entries(k.respuestas||{}).filter(([,v])=>v).map(([q,v])=>`- ${q}: ${v}`).join('\n');
+  const prompt = `${RAZONAMIENTO}
+
+Actividad a analizar (descrita por el usuario):
+Título: ${k.titulo}
+Área: ${k.area}. Equipo: ${k.equipo}. Dotación estimada: ${k.dotacion || 'no indicada'}.
+Descripción: ${k.desc}
+${resp ? '\nRespuestas del usuario a preguntas anteriores (úsalas, no las vuelvas a preguntar):\n' + resp : ''}
+${k.listado ? '\nListado actual editado por el usuario (respeta sus cambios de texto, orden y tareas agregadas o quitadas):\n' + JSON.stringify(k.listado.tareas.map(t=>({n:t.n,tarea:t.tarea}))) : ''}
+
+Riesgos de fatalidad (SIGO-G-012 v002). Declarados por BERLIAM para el contrato: ${Object.entries(D.rfcat).filter(([c,r])=>r.declarado).map(([c,r])=>c+' '+r.nombre).join('; ')}. No declarados (asígnalos solo si la tarea de verdad expone a ese riesgo; quedan como alerta porque habría que declararlos): ${Object.entries(D.rfcat).filter(([c,r])=>!r.declarado).map(([c,r])=>c+' '+r.nombre).join('; ')}.
+Cargos habituales: Supervisor, Mecánico, Eléctrico, Rigger, Operador de grúa / puente grúa, Soldador, Ayudante. BERLIAM hace mantención mecánica y eléctrica industrial; no hace cambio ni empalme de cintas.
+
+Responde SOLO con JSON con esta forma:
+{"titulo":"…","tareas":[{"n":"1","tarea":"Coordinar…","rnr":"R","cargos":["Supervisor"],"dotacion":1,"energias":["…"],"linea_fuego":"…","evento":"…","rf":["RF09"],"control_principal":"…","y_si_falla":"…"}],"preguntas":[{"pregunta":"…","por_que":"cómo cambia el riesgo"}],"faltantes":["…"]}
+${k.desdeMapa ? '⟦S2⟧\n' : ''}Reglas: ${k.desdeMapa ? 'las tareas del mapa' : 'entre 8 y 25 tareas'}; ⟦S3⟧; "faltantes": siempre vacío [].`;
+  try {
+    const r = await pedir(prompt, 'Analizando la actividad con el criterio del área', 'complex');
+    if (!r || !Array.isArray(r.tareas) || !r.tareas.length) throw { code: 'invalid_json' };
+    if (k.desdeMapa && k.listado){ const orig = k.listado.tareas; r.tareas = orig.map((o,i) => { const a = r.tareas.find(x => String(x.n) === String(o.n)) || r.tareas[i] || {}; return { ...a, tarea: o.tarea, rnr: o.rnr, cargos: (o.cargos&&o.cargos.length)?o.cargos:(a.cargos||[]), dotacion: o.dotacion || a.dotacion }; }); }
+    k.listado = { tareas: r.tareas.map((t,i)=>({ n: String(i+1), tarea: String(t.tarea||''), rnr: t.rnr==='NR'?'NR':'R', cargos: (t.cargos||[]).map(String), dotacion: Number(t.dotacion)||1, energias:(t.energias||[]).map(String), linea_fuego:String(t.linea_fuego||''), evento:String(t.evento||''), rf:(t.rf||[]).map(String).filter(x=>/^RF\d\d$/.test(x)), control_principal:String(t.control_principal||''), y_si_falla:String(t.y_si_falla||'') })),
+      preguntas: (r.preguntas||[]).slice(0,4).map(q=>({ pregunta:String(q.pregunta||''), por_que:String(q.por_que||'') })), faltantes:(r.faltantes||[]).map(String).slice(0,6) };
+    if (!k.titulo && r.titulo) k.titulo = String(r.titulo);
+    k.respuestasUsadas = Object.fromEntries(Object.entries(k.respuestas||{}).filter(([,v]) => v && v.trim()));
+    k.aprobado = false; k.miper = null; k.proc = null; S.step = 2;
+    await guardar();
+  } catch (e) { S.err = errTexto(e); }
+  render();
+}
+
+/* Actualizar con respuestas: solo se reanalizan las tareas que cambian (ahorra tiempo y uso). */
+async function actualizarConRespuestas(){
+  const k = S.cur, L = k.listado; S.err = null;
+  const usadas = k.respuestasUsadas || {};
+  const nuevas = Object.entries(k.respuestas||{}).filter(([q,v]) => v && v.trim() && usadas[q] !== v);
+  if (!L.tareas.some(t => (t.energias||[]).length)) return analizar();
+  if (!nuevas.length){ S.err = 'No hay respuestas nuevas para aplicar.'; render(); return; }
+  const hechas = Object.keys(k.respuestas||{}).length; const cupo = Math.max(0, 8 - hechas);
+  const prompt = `${RAZONAMIENTO}
+
+Actividad: ${k.titulo}. Área: ${k.area}.
+Listado YA analizado (no lo repitas entero):
+${JSON.stringify(L.tareas.map(t => ({ n: t.n, tarea: t.tarea, energias: t.energias, rf: t.rf, control_principal: t.control_principal })))}
+
+Respuestas nuevas del usuario:
+${nuevas.length ? nuevas.map(([q,v]) => '- ' + q + ': ' + v).join('\n') : '(ninguna)'}
+
+Riesgos de fatalidad válidos (SIGO-G-012 v002): ${Object.entries(D.rfcat).map(([c,r]) => c + (r.declarado ? '' : '(no declarado)')).join(', ')}.
+
+⟦S4⟧
+Devuelve SOLO las tareas cuyo análisis cambia por estas respuestas (mismo n y mismo texto de tarea; no agregues ni quites tareas). Si ninguna cambia, "tareas" va vacío.
+Responde SOLO con JSON: {"tareas":[{"n":"3","energias":["…"],"linea_fuego":"…","evento":"…","rf":["RF01"],"control_principal":"…","y_si_falla":"…"}],"preguntas":[{"pregunta":"…","por_que":"…"}],"faltantes":["…"]}
+"preguntas": ${cupo ? '⟦S5⟧' + Math.min(2,cupo) + '⟦S6⟧' : 'vacío: ya se hicieron todas las preguntas permitidas; lo que no se sepa va en "faltantes"'}. "faltantes": siempre vacío [].`;
+  try {
+    const r = await pedir(prompt, 'Aplicando tus respuestas solo a las tareas afectadas', 'complex');
+    if (!r || !Array.isArray(r.tareas)) throw { code: 'invalid_json' };
+    const cambiadas = [];
+    for (const a of r.tareas){ const t = L.tareas.find(x => String(x.n) === String(a.n)); if (!t) continue;
+      if (Array.isArray(a.energias)) t.energias = a.energias.map(String);
+      for (const f of ['linea_fuego','evento','control_principal','y_si_falla']) if (a[f]) t[f] = String(a[f]);
+      if (Array.isArray(a.rf)) t.rf = a.rf.map(String).filter(x => /^RF\d\d$/.test(x));
+      cambiadas.push(t.n); }
+    const respondidas = new Set(Object.keys(k.respuestas||{}).filter(q => (k.respuestas[q]||'').trim()));
+    L.preguntas = [...L.preguntas.filter(q => !respondidas.has(q.pregunta)), ...(r.preguntas||[]).slice(0,Math.min(2,cupo)).map(q => ({ pregunta: String(q.pregunta||''), por_que: String(q.por_que||'') }))].filter(q => q.pregunta && !respondidas.has(q.pregunta)).slice(0,6);
+    for (const [q,v] of nuevas) usadas[q] = v; k.respuestasUsadas = usadas;
+    k.aprobado = false; k.miper = null; k.proc = null;
+    S.aviso = cambiadas.length ? 'Se actualizaron las tareas ' + cambiadas.join(', ') + '. Las demás quedaron igual.' : 'Tus respuestas no cambian el análisis de ninguna tarea.';
+    await guardar();
+  } catch (e) { S.err = errTexto(e); }
+  render();
+}
+
+function catalogoTexto(){
+  return D.catalogo.map(c => `${c.cod} | ${c.cat} | pares P,C→Pr,Cr: ${c.pares.map(p=>p.join(',')).join(' / ')} | ej: ${c.ej.slice(0,2).join(' ; ')}`).join('\n');
+}
+async function generarMiper(){
+  const k = S.cur; S.err = null;
+  const tareas = k.listado.tareas; const filas = [];
+  const lotes = []; for (let i = 0; i < tareas.length; i += 3) lotes.push(tareas.slice(i, i+3));
+  try {
+    for (let li = 0; li < lotes.length; li++){
+      const lote = lotes[li];
+      const prompt = `${RAZONAMIENTO}
+
+Vas a llenar la MIPER SIGO-F-006 v7 para estas tareas de la actividad "${k.titulo}" (${k.equipo}):
+${JSON.stringify(lote.map(t=>({n:t.n,tarea:t.tarea,energias:t.energias,linea_fuego:t.linea_fuego,evento:t.evento,rf:t.rf,control_principal:t.control_principal})))}
+${Object.entries(k.respuestas||{}).filter(([,v])=>v&&v.trim()).length ? '\n⟦S7⟧\n' + Object.entries(k.respuestas).filter(([,v])=>v&&v.trim()).map(([q,v])=>'- ' + q + ' → ' + v).join('\n') + '\n' : ''}
+Lista cerrada de códigos de peligro (columna K). Usa el código EXACTO, tal como aparece antes del primer "|":
+${catalogoTexto()}
+
+⟦S8⟧
+
+Responde SOLO con JSON: {"filas":[{"tarea_n":"1","codigo":"(B1)_RC09_Atrapamiento","peligro":"…","P":4,"C":4,"Pr":2,"Cr":4,"val_inh":null,"val_res":null,"medidas":"…","jerarquia":"…"}]}`;
+      const r = await pedir(prompt, `Evaluando peligros de las tareas ${lote[0].n} a ${lote[lote.length-1].n} (${li+1} de ${lotes.length})`, 'default');
+      for (const f of (r && r.filas) || []) filas.push(f);
+    }
+  } catch (e) { S.err = errTexto(e); render(); return; }
+  k.miper = construirMiper(filas); S.step = 3; S.tab = 'miper';
+  await guardar(); render();
+}
+function construirMiper(filas){
+  const k = S.cur; const out = [];
+  for (const t of k.listado.tareas){
+    const propias = filas.filter(f => String(f.tarea_n) === String(t.n));
+    for (const f of propias) out.push(fila(t, f.codigo, f.peligro, f.P, f.C, f.Pr, f.Cr, f.val_inh, f.val_res, f.medidas, f.jerarquia));
+    for (const e of D.entorno){
+      const hig = typeof e.inherente[0] !== 'number';
+      out.push(fila(t, e.codigo, e.peligro, hig?null:e.inherente[0], hig?null:e.inherente[1], hig?null:e.residual[0], hig?null:e.residual[1], hig?e.inherente[2]+'|'+e.inherente[3]:null, hig?e.residual[2]+'|'+e.residual[3]:null, e.medidas, e.jerarquia, true));
+    }
+  }
+  return out;
+}
+function fila(t, codigo, peligro, P, C, Pr, Cr, vi, vr, medidas, jer, entorno){
+  const cat = (D.catalogo.find(c=>c.cod===codigo)||{}).cat || '';
+  const r = { tarea_n: t.n, tarea: t.tarea, cargo: (t.cargos||[]).join(' / '), dotacion: t.dotacion, codigo: String(codigo||''), cat, peligro: String(peligro||''), medidas: String(medidas||''), jerarquia: String(jer||''), resp: 'ADC / SUPERVISION', entorno: !!entorno };
+  P=num(P); C=num(C); Pr=num(Pr); Cr=num(Cr);
+  if (P && C){ r.P=P; r.C=C; r.vep=P*C; r.niv=NIVEL(P*C); } else { const [a,b]=String(vi||'|').split('|'); r.vep=a||''; r.niv=b||''; }
+  if (Pr && Cr){ r.Pr=Pr; r.Cr=Cr; r.vepr=Pr*Cr; r.nivr=NIVEL(Pr*Cr); } else { const [a,b]=String(vr||'|').split('|'); r.vepr=a||''; r.nivr=b||''; }
+  return r;
+}
+function alertas(){
+  const k = S.cur, A = [];
+  if (!k.miper) return A;
+  for (const t of k.listado.tareas){
+    const fs = k.miper.filter(f=>f.tarea_n===t.n && !f.entorno);
+    if (!fs.length) A.push(['b',`Tarea ${t.n}: no tiene peligros propios evaluados.`]);
+    for (const rf of t.rf){ const rr = D.rfcat[rf]; if (!rr) A.push(['b',`Tarea ${t.n}: ${rf} no existe en la SIGO-G-012 vigente.`]); else if (!rr.declarado) A.push(['b',`Tarea ${t.n}: ${rf} ${rr.nombre} no está en la declaración de aplicabilidad de BERLIAM. El RESSO v11 descuenta 5% por exponerse a un RF no declarado: decláralo o cambia el método.`]); }
+    for (const rf of t.rf){ const rc = 'RC' + rf.slice(2); if (!CODES.some(c=>c.includes(rc))) continue; if (!fs.some(f=>f.codigo.includes('_'+rc+'_') || f.codigo.includes('_'+rc))) A.push(['w',`Tarea ${t.n}: el listado marca ${rf} pero la MIPER no tiene un peligro ${rc}.`]); }
+  }
+  for (const f of k.miper){
+    if (!CODES.includes(f.codigo)) A.push(['b',`Tarea ${f.tarea_n}: el código "${f.codigo}" no está en la lista del formato.`]);
+    if (f.P && f.Pr && f.vepr > f.vep) A.push(['b',`Tarea ${f.tarea_n}: el residual de "${f.peligro.slice(0,50)}" es mayor que el inherente.`]);
+    if (f.C && f.Cr && f.Cr < f.C && !f.entorno && !/RC01|RC22|\(N\)|A1/.test(f.codigo)) A.push(['w',`Tarea ${f.tarea_n}: "${f.peligro.slice(0,50)}" baja la consecuencia de ${f.C} a ${f.Cr}; revisa que la medida quite la energía.`]);
+  }
+  return A;
+}
+
+async function generarProc(){
+  const k = S.cur; S.err = null;
+  const rfs = [...new Set(k.listado.tareas.flatMap(t=>t.rf))].sort();
+  const prompt = `${RAZONAMIENTO}
+
+Vas a completar el procedimiento de trabajo VELTB de BERLIAM para "${k.titulo}" (${k.equipo}, ${k.area}). Los pasos ya están definidos (no los cambies):
+${k.listado.tareas.map(t=>t.n+'. '+t.tarea).join('\n')}
+Descripción original: ${k.desc}
+Riesgos de fatalidad de la actividad: ${rfs.join(', ')}.
+${Object.entries(k.respuestas||{}).filter(([,v])=>v&&v.trim()).length ? 'Datos confirmados por el usuario (úsalos en equipos, herramientas, EPP y medidas donde correspondan):\n' + Object.entries(k.respuestas).filter(([,v])=>v&&v.trim()).map(([q,v])=>'- ' + q + ' → ' + v).join('\n') + '\n' : ''}
+Responde SOLO con JSON:
+{"objetivo":"…","rf":{"RF09":{"riesgos":["Atrapamiento con…"],"medidas":["Cumplir con RC09 …","…"]}},"bloqueo":[{"area":"…","filas":[["equipo a bloquear","","sala eléctrica"]]}],"recursos":{"insumos":[],"herramientas":[],"equipos_apoyo":[],"repuestos":[],"epp":[],"epp_especificos":[]},"ecf":["ECF 1 Aislación y bloqueo"],"evaluacion":["¿…?"],"aspectos":[["aspecto ambiental","efecto posible","control operacional"]]}
+⟦S9⟧${(D.rfmeta.ecf||[]).map((e,i)=>'ECF '+(i+1)+' '+e).join(', ')}⟦S10⟧`;
+  try {
+    const r = await pedir(prompt, 'Redactando el procedimiento', 'default');
+    k.proc = armarProc(r || {}, rfs); S.tab = 'proc';
+    await guardar();
+  } catch (e) { S.err = errTexto(e); }
+  render();
+}
+function armarProc(r, rfs){
+  const k = S.cur;
+  const rf_tablas = rfs.map(c => {
+    const cat = D.rfcat[c] || {}; const g = (r.rf||{})[c] || {};
+    return { codigo: c, titulo: cat.nombre || RF_NOMBRES[c] || '', riesgos: (g.riesgos||[]).map(String), medidas: (g.medidas||[]).map(String),
+      preventivos: cat.preventivos || [], mitigadores: cat.mitigadores || [], sin_catalogo: !cat.nombre };
+  });
+  const arr = x => Array.isArray(x) ? x.map(String) : [];
+  const R = r.recursos || {};
+  if (!Array.isArray(k.historial) || !k.historial.length){ k.revision = Number(k.revision)||0; k.historial = [[0,'Confección de procedimiento','Todos',FECHA()]]; }
+  return { codigo: k.codigo, titulo: k.titulo, revision: String(k.revision||0), fecha_emision: (k.historial[k.historial.length-1]||[])[3] || FECHA(),
+    historial: k.historial.map(r=>r.map(String)),
+    objetivo: r.objetivo ? String(r.objetivo) : undefined,
+    firmas: {}, bloqueo: (r.bloqueo||[]).map(b=>({area:String(b.area||''), filas:(b.filas||[]).map(f=>[String(f[0]||''),'',String(f[2]||'')])})),
+    recursos: { insumos: arr(R.insumos), herramientas: arr(R.herramientas), equipos_apoyo: arr(R.equipos_apoyo), repuestos: arr(R.repuestos), epp: arr(R.epp), epp_especificos: arr(R.epp_especificos) },
+    pasos: k.listado.tareas.map(t=>({ n: t.n + '.', t: t.tarea })), rf_tablas, rf: rfs, ecf: arr(r.ecf), evaluacion: arr(r.evaluacion),
+    aspectos: (r.aspectos||[]).length ? r.aspectos.map(a=>[String(a[0]||''),String(a[1]||''),String(a[2]||'')]) : undefined };
+}
+
+/* ---------- vista del kit (asistente) ---------- */
+function vKit(){
+  const k = S.cur;
+  const pasos = ['Describir','Listado y visto bueno','MIPER y procedimiento'];
+  $main.append(h('div',{class:'row between'},
+    h('div',{style:'min-width:0'}, h('div',{class:'eyebrow',text:'Actividad nueva · BERLIAM DRT'}), h('h1',{text:k.titulo || 'Kit sin título'})),
+    h('ol',{class:'steps','aria-label':'Pasos'}, ...pasos.map((p,i)=>h('li',{class: S.step===i+1?'on':(S.step>i+1?'done':''), text:(i+1)+'. '+p})))), ...banner());
+  if (S.busy) $main.append(h('div',{class:'busy',role:'status'}, h('div',{class:'spin'}), h('div',{}, h('div',{text:S.busy.t}), h('div',{id:'busyN',style:'font-weight:400;font-size:12px',text:'Pensando… puede tardar uno o dos minutos.'})), h('button',{class:'btn sm',style:'margin-left:auto',onclick:()=>ctl&&ctl.abort(),text:'Detener'})));
+  if (S.step === 1) paso1(); else if (S.step === 2) paso2(); else paso3();
+}
+function campo(lbl, key, attrs){
+  const k = S.cur; const tag = attrs && attrs.area ? 'textarea' : 'input';
+  const el = h(tag,{class:'in', id:'f_'+key, rows: attrs && attrs.area ? 8 : null, placeholder:(attrs&&attrs.ph)||null});
+  el.value = k[key] || ''; el.addEventListener('input', () => { k[key] = el.value; });
+  return h('label',{class:'f', for:'f_'+key}, lbl, el);
+}
+function paso1(){
+  const k = S.cur;
+  if (!k.desc && !k.titulo){ Object.assign(k, { titulo:'Cambio de reductor de accionamiento', equipo:'Reductor de accionamiento (TAG por completar)', area:'Chancado Primario', dotacion:'5', desc:'Ejemplo (reemplázalo por tu actividad): cambio del reductor de un accionamiento. Coordinación con Operaciones y bloqueo en sala eléctrica del motor (eléctrico verifica energía cero), más bloqueo mecánico del eje. Retiro de guardas, desacople de coplas motor-reductor y reductor-eje, drenaje de aceite. Desmontaje de pernos de anclaje con herramienta de torque. Izaje del reductor con puente grúa y retiro a zona de acopio. Montaje del reductor nuevo, nivelación y alineamiento láser, torque de pernos, llenado de aceite, reinstalación de guardas. Desbloqueo, prueba de giro y entrega a Operaciones.'}); }
+  $main.append(h('div',{class:'card'},
+    h('h2',{text:'Cuéntanos la actividad como la harías en terreno'}),
+    h('p',{class:'sub',text:'Mientras más concreto (equipos, qué se bloquea, cómo se mueve la carga, qué se desarma o se suelda), mejor sale el listado. El texto de ejemplo se puede borrar.'}),
+    h('div',{class:'grid2'}, campo('Nombre de la actividad','titulo'), campo('Código (correlativo)','codigo',{ph:'VELTB-P-CRT208-MM-0000'}), campo('Equipo o TAG','equipo'), campo('Área','area'), campo('Dotación estimada','dotacion',{ph:'Ej: 6'})),
+    campo('Descripción','desc',{area:true}),
+    h('div',{class:'row',style:'justify-content:flex-end'}, h('button',{class:'btn pri',disabled:!sample||!!S.busy,onclick:()=>{ if(!S.cur.desc.trim()){S.err='Escribe la descripción de la actividad.';render();return;} const rep=codigoRepetido(S.cur); if(rep){S.err='El código '+S.cur.codigo+' ya lo usa el kit "'+(rep.titulo||'sin título')+'". Cámbialo o usa '+siguienteCodigo(S.cur.codigo.replace(/\d+$/,''))+'.';render();return;} analizar(); },text:'Analizar actividad'}))));
+}
+function paso2(){
+  const k = S.cur, L = k.listado;
+  const rfs = [...new Set(L.tareas.flatMap(t=>t.rf))].sort();
+  if (k.desdeMapa && !L.tareas.some(t => (t.energias||[]).length)) $main.append(h('div',{class:'card',style:'border:2px solid var(--accent)'}, h('div',{class:'eyebrow',text:'Cargado desde el mapa de procesos'}), h('h2',{text:L.tareas.length + ' tareas del mapa, sin analizar todavía'}), h('p',{class:'sub',text:'Las tareas quedan tal como están en el mapa. El análisis agrega energía, línea de fuego, RF, control principal y "¿y si falla?" a cada una, y avisa si falta un paso crítico.'}), h('div',{class:'row',style:'justify-content:flex-end'}, h('button',{class:'btn pri',disabled:!sample||!!S.busy,onclick:analizar,text:'Analizar tareas del mapa'}))));
+  $main.append(h('div',{class:'card'},
+    h('div',{class:'row between'}, h('div',{}, h('div',{class:'eyebrow',text:'Listado para visto bueno'}), h('h2',{text:L.tareas.length+' tareas · '+rfs.length+' riesgos de fatalidad'})),
+      h('div',{class:'row'}, ...rfs.map(r=>h('span',{class:'chip',title:RF_NOMBRES[r]||'',text:r})))),
+    h('p',{class:'sub',text:'Revisa el texto de cada tarea: es el mismo que va al mapa, a la MIPER y al procedimiento. Puedes editar, quitar o agregar tareas.'})));
+  if (L.preguntas && L.preguntas.length){
+    const qs = h('div',{class:'qs'});
+    L.preguntas.forEach((q,i)=>{ const id='q'+i; const inp=h('input',{class:'in',id,placeholder:'Tu respuesta'}); inp.value=k.respuestas[q.pregunta]||''; inp.addEventListener('input',()=>{k.respuestas[q.pregunta]=inp.value;});
+      qs.append(h('div',{class:'q'}, h('label',{for:id,style:'font-weight:600',text:q.pregunta}), h('div',{class:'sub',text:q.por_que}), inp)); });
+    $main.append(h('div',{class:'card'}, h('h2',{text:'Preguntas que cambian el riesgo'}), h('p',{class:'sub',text:'Son opcionales. Si no sabes una, déjala en blanco y da el visto bueno.'}), qs,
+      h('div',{class:'row',style:'justify-content:flex-end'}, h('button',{class:'btn',disabled:!sample||!!S.busy,onclick:actualizarConRespuestas,text:'Actualizar listado con mis respuestas'}))));
+  }
+  const lista = h('div',{class:'card'});
+  L.tareas.forEach((t,i)=>{
+    const inp = h('input',{class:'in','aria-label':'Tarea '+t.n}); inp.value = t.tarea; inp.addEventListener('input',()=>{t.tarea=inp.value;});
+    lista.append(h('div',{class:'task'},
+      h('div',{class:'hd'}, h('span',{class:'num',text:t.n+'.'}), inp, h('button',{class:'btn sm',title:'Quitar tarea','aria-label':'Quitar tarea '+t.n,onclick:()=>{L.tareas.splice(i,1); L.tareas.forEach((x,j)=>x.n=String(j+1)); render();},text:'Quitar'})),
+      h('div',{class:'kv'},
+        h('div',{}, h('b',{text:'Energía: '}), t.energias.join(', ')||'—'),
+        h('div',{}, h('b',{text:'Línea de fuego: '}), t.linea_fuego||'—'),
+        h('div',{}, h('b',{text:'RF: '}), t.rf.join(' · ')||'Sin RF'),
+        h('div',{}, h('b',{text:'Cargos: '}), (t.cargos||[]).join(', ')+' ('+t.dotacion+') · '+t.rnr),
+        h('div',{}, h('b',{text:'Control principal: '}), t.control_principal||'—'),
+        h('div',{}, h('b',{text:'¿Y si falla?: '}), t.y_si_falla||'—'))));
+  });
+  lista.append(h('div',{class:'row'}, h('button',{class:'btn sm',onclick:()=>{L.tareas.push({n:String(L.tareas.length+1),tarea:'Nueva tarea',rnr:'R',cargos:['Mecánico'],dotacion:1,energias:[],linea_fuego:'',evento:'',rf:[],control_principal:'',y_si_falla:''}); render();},text:'Agregar tarea'})));
+  $main.append(lista);
+  /* lista 'Antes de firmar falta' eliminada a pedido del usuario */
+  $main.append(h('div',{class:'row',style:'justify-content:space-between'},
+    h('button',{class:'btn',onclick:()=>{S.step=1;render();},text:'Volver a la descripción'}),
+    h('button',{class:'btn pri',disabled:!sample||!!S.busy,onclick:async()=>{ k.aprobado=true; await guardar(); generarMiper();},text:'Visto bueno: generar MIPER'})));
+}
+function paso3(){
+  const k = S.cur;
+  if (!k.miper){ $main.append(h('div',{class:'card'}, h('p',{text:'La MIPER todavía no se genera.'}), h('button',{class:'btn pri',disabled:!sample||!!S.busy,onclick:generarMiper,text:'Generar MIPER'}))); return; }
+  const A = alertas();
+  const tabs = h('div',{class:'tabs',role:'tablist'}, ...[['miper','MIPER SIGO-F-006'],['proc','Procedimiento'],['mapa','Mapa de procesos'],['rev','Revisión ('+A.length+')']].map(([v,l])=>h('button',{role:'tab','aria-selected':S.tab===v?'true':'false',onclick:()=>{S.tab=v;render();},text:l})));
+  const acciones = h('div',{class:'row'},
+    h('button',{class:'btn sm',onclick:()=>{S.step=2;render();},text:'Volver al listado'}),
+    h('button',{class:'btn sm pri',disabled:!downloads||!!S.busy,onclick:bajarKitCompleto,text:'Descargar kit completo (.zip)'}),
+    h('button',{class:'btn sm',disabled:!downloads,onclick:bajarMiperOficial,text:'MIPER oficial SIGO-F-006 (.xlsm)'}),
+    h('button',{class:'btn sm',disabled:!downloads,onclick:bajarMiper,text:'MIPER simple (.xlsx)'}),
+    h('button',{class:'btn sm',disabled:!downloads,onclick:bajarMapa,text:'Mapa SIGO-F-011 (.xlsx)'}),
+    h('button',{class:'btn sm',disabled:!downloads,onclick:bajarTraz,text:'Trazabilidad (.xlsx)'}),
+    h('button',{class:'btn sm',disabled:!downloads||!k.proc,onclick:bajarProc,text:'Descargar procedimiento (.docx)'}));
+  $main.append(h('div',{class:'card'}, h('div',{class:'row between'}, tabs, acciones),
+    S.tab==='miper'? tablaMiper() : S.tab==='proc'? vistaProc() : S.tab==='mapa'? tablaMapa() : vistaRev(A)));
+  $main.append(cajaTerreno(), cajaRevision(), cajaFirmas());
+  $main.append(h('p',{class:'sub',text:'Borrador para revisión de un prevencionista.'}));
+}
+function tablaMiper(){
+  const k = S.cur;
+  const t = h('table',{class:'t'}, h('thead',{}, h('tr',{}, ...['N°','Tarea','Cargo','Peligro','Código','P','C','VEP','Nivel','Medidas de control','Jerarquía','P','C','VEP','Nivel residual'].map(x=>h('th',{text:x})))));
+  const tb = h('tbody'); let prev = null;
+  for (const f of k.miper){
+    tb.append(h('tr',{style:f.entorno?'opacity:.75':null},
+      h('td',{class:'c',text:f.tarea_n!==prev?f.tarea_n:''}), h('td',{text:f.tarea_n!==prev?f.tarea:''}), h('td',{text:f.tarea_n!==prev?f.cargo:''}),
+      h('td',{text:f.peligro}), h('td',{text:f.codigo.replace(/_/g,' ')}),
+      h('td',{class:'c',text:f.P||'NA'}), h('td',{class:'c',text:f.C||'NA'}), h('td',{class:'c',text:f.P?f.vep:''}), h('td',{}, h('span',{class:lvClass(f.niv),text:f.niv})),
+      h('td',{style:'white-space:pre-line;min-width:260px',text:(f.entorno?140:420)<f.medidas.length?f.medidas.slice(0,f.entorno?140:420)+'…':f.medidas}), h('td',{text:f.jerarquia}),
+      h('td',{class:'c',text:f.Pr||'NA'}), h('td',{class:'c',text:f.Cr||'NA'}), h('td',{class:'c',text:f.Pr?f.vepr:''}), h('td',{}, h('span',{class:lvClass(f.nivr),text:f.nivr}))));
+    prev = f.tarea_n;
+  }
+  t.append(tb);
+  return h('div',{}, h('p',{class:'sub',text:k.miper.length+' filas. Las filas más claras son los peligros de entorno del área que el kit repite en cada tarea.'}), h('div',{class:'tw'}, t));
+}
+function tablaMapa(){
+  const k = S.cur;
+  const t = h('table',{class:'t'}, h('thead',{}, h('tr',{}, ...['N°','Tarea','R/NR','Cargos','Dotación','RF'].map(x=>h('th',{text:x})))));
+  const tb = h('tbody'); for (const x of k.listado.tareas) tb.append(h('tr',{}, h('td',{class:'c',text:x.n}), h('td',{text:x.tarea}), h('td',{class:'c',text:x.rnr}), h('td',{text:(x.cargos||[]).join(', ')}), h('td',{class:'c',text:x.dotacion}), h('td',{text:x.rf.join(', ')})));
+  t.append(tb); return h('div',{}, h('p',{class:'sub',text:'Tareas del mapa SIGO-F-011, con el mismo texto que la MIPER y el procedimiento.'}), h('div',{class:'tw'}, t));
+}
+function vistaRev(A){
+  if (!A.length) return h('div',{class:'note g',text:'Sin observaciones: cada tarea tiene peligros propios, los RF del listado están en la MIPER y los códigos son de la lista del formato.'});
+  return h('div',{class:'note '+(A.some(a=>a[0]==='b')?'b':'w')}, h('b',{text:'Revisa antes de descargar'}), h('ul',{}, ...A.map(a=>h('li',{text:a[1]}))));
+}
+function nuevaRevision(motivo, item){
+  const k = S.cur; k.revision = (Number(k.revision)||0) + 1;
+  k.historial = (k.historial||[]).concat([[k.revision, motivo, item || 'Varios', FECHA()]]);
+  if (k.proc){ k.proc.revision = String(k.revision); k.proc.historial = k.historial.map(r=>r.map(String)); k.proc.fecha_emision = FECHA(); }
+  guardar(); render();
+}
+function cajaRevision(){
+  const k = S.cur; const mot = h('input',{class:'in',id:'revMot',placeholder:'Qué cambia (ej.: se agrega bloqueo mecánico del eje)'}); const it = h('input',{class:'in',id:'revIt',placeholder:'Ítem (ej.: 5.4)'});
+  return h('div',{class:'card'}, h('div',{class:'row between'}, h('div',{}, h('div',{class:'eyebrow',text:'Versión del documento'}), h('h2',{text:(k.codigo||'Sin código')+' · Revisión '+(Number(k.revision)||0)})),
+      h('span',{class:'sub',text:(k.historial||[]).length+' registro(s) en el historial'})),
+    h('p',{class:'sub',text:'El código y la revisión se ponen solos y salen en la portada, el encabezado, el historial del procedimiento y la MIPER. Crea una revisión cuando el kit ya se emitió y cambias algo (aprendizaje de una ART, incidente, auditoría o cambio de método).'}),
+    h('div',{class:'grid2'}, h('label',{class:'f',for:'revMot'},'Motivo del cambio',mot), h('label',{class:'f',for:'revIt'},'Ítem modificado',it)),
+    h('div',{class:'row',style:'justify-content:flex-end'}, h('button',{class:'btn',onclick:()=>{ if(!mot.value.trim()){S.err='Escribe el motivo de la nueva revisión.';render();return;} nuevaRevision(mot.value.trim(), it.value.trim()); },text:'Crear revisión '+((Number(k.revision)||0)+1)})));
+}
+function vistaProc(){
+  const k = S.cur, p = k.proc;
+  if (!p) return h('div',{class:'qs'}, h('p',{class:'sub',text:'El procedimiento usa los mismos pasos del listado y los controles críticos del catálogo del área.'}), h('div',{}, h('button',{class:'btn pri',disabled:!sample||!!S.busy,onclick:generarProc,text:'Generar procedimiento'})));
+  const d = h('div',{class:'doc'});
+  d.append(h('h3',{text:'1. Objetivo'}), h('p',{text:p.objetivo||D.base.objetivo}));
+  d.append(h('h3',{text:'5.4 Paso a paso'}), h('ol',{}, ...p.pasos.map(x=>h('li',{text:x.t}))));
+  for (const r of p.rf_tablas){
+    d.append(h('h3',{text:r.codigo+' '+r.titulo}));
+    if (r.sin_catalogo) d.append(h('p',{class:'note w',text:'Este RF no tiene controles críticos en el catálogo todavía: complétalos con SIGO-G-012.'}));
+    d.append(h('p',{}, h('b',{text:'Riesgos: '}), r.riesgos.join('; ')));
+    d.append(h('ul',{}, ...r.medidas.map(m=>h('li',{text:m})), ...r.preventivos.map(c=>h('li',{}, h('b',{text:c.cod+': '+c.nombre}), c.erosion&&c.erosion.length?h('div',{class:'ero',text:'Erosión: '+c.erosion.slice(0,3).join(' · ')+(c.erosion.length>3?' …':'')}):null)), ...r.mitigadores.map(c=>h('li',{}, h('b',{text:c.cod+': '+c.nombre})))));
+  }
+  d.append(h('h3',{text:'Anexo E.C.F'}), h('p',{text:p.ecf.join(' · ')||'—'}));
+  return h('div',{}, h('div',{class:'row between'}, h('p',{class:'sub',text:'Vista resumida. La descarga incluye todas las secciones del formato VELTB.'}), h('button',{class:'btn sm',disabled:!sample||!!S.busy,onclick:generarProc,text:'Volver a redactar'})), d);
+}
+
+/* ---------- ficha de datos de terreno ---------- */
+function faltantesCortos(L){ return []; }  // decisión del usuario 23-11-2026: sin lista de faltantes generada por la IA
+function datosTerreno(k){
+  const T = k.terreno || {}; const out = [];
+  for (const f of faltantesCortos(k.listado)) out.push({ id: 'f:' + f, etiqueta: f, valor: T['f:' + f] || '' });
+  ((k.proc && k.proc.bloqueo) || []).forEach((b, bi) => (b.filas || []).forEach((r, ri) => out.push({ id: `tag:${bi}:${ri}`, etiqueta: 'TAG de bloqueo: ' + (r[0] || 'equipo') + (b.area ? ' (' + b.area + ')' : ''), valor: r[1] || '', tag: [bi, ri] })));
+  const cods = Array.isArray(k.miper) ? k.miper.map(f => f.codigo) : (k._mcodigos || []);
+  if (cods.some(c => /O1\)?_RC20/.test(c))) out.push({ id: 'med:silice', etiqueta: 'Medición de sílice del área (informe y fecha)', valor: T['med:silice'] || '' });
+  if (cods.some(c => /P1\)?_/.test(c))) out.push({ id: 'med:ruido', etiqueta: 'Medición de ruido del área (informe y fecha)', valor: T['med:ruido'] || '' });
+  return out;
+}
+function cajaTerreno(){
+  const k = S.cur; k.terreno = k.terreno || {}; const items = datosTerreno(k); const faltan = items.filter(x => !x.valor).length;
+  const card = h('div',{class:'card'}, h('div',{class:'row between'}, h('div',{}, h('div',{class:'eyebrow',text:'Datos de terreno'}), h('h2',{text: faltan ? 'Faltan ' + faltan + ' de ' + items.length + ' datos' : (items.length ? 'Datos de terreno completos' : 'Sin datos pendientes')})),
+      h('span',{class:'chip ' + (faltan ? 'w' : 'g'), text: faltan ? 'Kit incompleto' : 'Kit completo'})),
+    h('p',{class:'sub',text:'Lo que la app no puede inventar: TAG, pesos, mediciones. Lo completa alguien de terreno; los TAG pasan solos a la tabla de bloqueo del procedimiento.'}));
+  items.forEach((x, i) => {
+    const e = h('input',{class:'in',id:'dt'+i,placeholder:'Completar'}); e.value = x.valor;
+    e.addEventListener('change', () => { const v = e.value.trim(); if (x.tag) k.proc.bloqueo[x.tag[0]].filas[x.tag[1]][1] = v; else k.terreno[x.id] = v; guardar(); render(); });
+    card.append(h('label',{class:'f',for:'dt'+i}, h('span',{style:'overflow-wrap:anywhere;font-weight:500;line-height:1.45',text:x.etiqueta}), e));
+  });
+  return card;
+}
+
+/* ---------- carga del mapa de procesos SIGO-F-011 ---------- */
+const aB64 = u => { let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); };
+const deB64 = b => { const s = atob(b); const u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u; };
+async function cargarMapa(file){
+  if (!file) return; S.err = null;
+  try { const buf = await file.arrayBuffer(); S.mapa = await window.leerMapa(buf); S.mapa.archivo = file.name; S.mapa.b64 = aB64(new Uint8Array(buf)); if (!S.mapa.actividades.length) throw new Error('El mapa no tiene tareas en la sección D.'); go('mapa'); }
+  catch (e) { S.err = 'No pude leer el mapa: ' + (e.message || 'formato no reconocido') + ' Debe ser el SIGO-F-011 en .xlsx.'; go('panel'); }
+}
+function procesoDe(a){ const P = (S.mapa && S.mapa.meta && S.mapa.meta.procesos) || {}; return P[String(a.n).split('.')[0]] || ''; }
+function prefProceso(a){ const p = procesoDe(a).toUpperCase(); return /EL[EÉ]CTR/.test(p) ? 'ME' : /HIDR/.test(p) ? 'MH' : 'MM'; }
+function kitDesdeActividad(a){
+  const M = S.mapa.meta || {}; const t0 = a.tareas[0] || {};
+  const k = { id: 'k' + Date.now().toString(36) + uid().slice(0,4), titulo: a.nombre.replace(/^\s*\d+(\.\d+)*\s*/, ''), codigo: siguienteCodigo('VELTB-P-CRT208-' + prefProceso(a) + '-'), proceso: procesoDe(a), revision: 0, historial: [[0,'Confección de procedimiento','Todos',FECHA()]],
+    area: t0.lugar || M.area || '', equipo: t0.lugar || '', dotacion: String(Math.max(...a.tareas.map(t => Number(t.dotacion)||0)) || ''), desdeMapa: true, mapaArchivo: S.mapa.archivo, mapaB64: S.mapa.b64 || null,
+    dot_mapa: { m: t0.m, f: t0.f, nb: t0.nb },
+    desc: 'Actividad del mapa de procesos SIGO-F-011 (' + S.mapa.archivo + '): ' + a.nombre + '. Tareas: ' + a.tareas.map((t,i) => (i+1) + ') ' + t.tarea).join(' '),
+    respuestas: {}, aprobado: false, miper: null, proc: null,
+    listado: { tareas: a.tareas.map((t,i) => ({ n: String(i+1), cod_mapa: t.cod, tarea: t.tarea, rnr: t.rnr, cargos: t.cargos, dotacion: Number(t.dotacion)||1, energias: [], linea_fuego: '', evento: '', rf: [], control_principal: '', y_si_falla: '' })), preguntas: [], faltantes: [] } };
+  return k;
+}
+function vMapa(){
+  const m = S.mapa; if (!m){ go('panel'); return; }
+  $main.append(h('div',{}, h('div',{class:'eyebrow',text:'Mapa de procesos SIGO-F-011 · ' + m.archivo}), h('h1',{text:m.actividades.length + (m.actividades.length===1?' actividad encontrada':' actividades encontradas')}),
+    h('p',{class:'sub',text:[m.meta.gerencia, m.meta.superintendencia, m.meta.area, m.meta.contrato].filter(Boolean).join(' · ')}),
+    h('p',{class:'sub',text:'Cada actividad se convierte en un kit con las mismas tareas del mapa. Después la app completa energías, RF, MIPER y procedimiento sin cambiar las tareas.'})), ...banner());
+  m.actividades.forEach((a, i) => {
+    const ya = S.kits.find(x => x.desdeMapa && x.titulo === a.nombre.replace(/^\s*\d+(\.\d+)*\s*/, ''));
+    $main.append(h('div',{class:'card'}, h('div',{class:'row between'}, h('div',{style:'min-width:0'}, h('h2',{text:a.n + ' · ' + a.nombre}), h('div',{class:'sub',text:a.tareas.length + ' tareas · ' + (a.tareas[0].lugar||'') + ' · ' + (a.tareas[0].cargos||[]).join(', ')})),
+        h('div',{class:'row'}, ya ? h('span',{class:'chip g',text:'Ya tiene kit'}) : null, h('button',{class:'btn ' + (ya?'':'pri'),onclick:async()=>{ S.cur = kitDesdeActividad(a); S.step = 2; await guardar(); go('kit'); },text: ya ? 'Crear otro kit' : 'Crear kit de esta actividad'}))),
+      h('ol',{style:'margin:0;padding-left:20px'}, ...a.tareas.slice(0,8).map(t => h('li',{style:'font-size:13px',text:(t.cod?t.cod+' ':'')+t.tarea+' ('+t.rnr+')'})), a.tareas.length>8 ? h('li',{class:'muted',style:'font-size:13px;list-style:none',text:'… y '+(a.tareas.length-8)+' más'}) : null)));
+  });
+}
+
+/* ---------- datos del contrato (editables) ---------- */
+const ROLES = [['confecciona','Confeccionado por'],['cphs','Toma conocimiento Comité Paritario'],['aprueba','Aprobado por Administrador de Contrato'],['revisa','Revisado por Jefe Depto. Prevención de Riesgos']];
+function contratoBase(){
+  const c = JSON.parse(JSON.stringify(S.contrato || {}));
+  if (!Array.isArray(c.telefonos) || !c.telefonos.length) c.telefonos = D.base.telefonos.map(t => [t[0], '', '']);
+  c.firmas = c.firmas || {}; for (const [r] of ROLES) c.firmas[r] = c.firmas[r] || { nombre:'', cargo:'' };
+  return c;
+}
+function firmasKit(k){ const c = contratoBase(); const f = {}; for (const [r] of ROLES){ const x = (k.firmas||{})[r] || {}; f[r] = { nombre: x.nombre || c.firmas[r].nombre || '', cargo: x.cargo || c.firmas[r].cargo || '' }; } return f; }
+function vContrato(){
+  const c = contratoBase();
+  const inp = (val, ph, on, lbl) => { const e = h('input',{class:'in',placeholder:ph,'aria-label':lbl||ph}); e.value = val || ''; e.addEventListener('input',()=>on(e.value)); return e; };
+  $main.append(h('div',{}, h('div',{class:'eyebrow',text:'BERLIAM · Contrato 4600031257'}), h('h1',{text:'Datos del contrato'}),
+    h('p',{class:'sub',text:'Lo que escribas aquí se pone solo en cada procedimiento nuevo. En cada kit se puede cambiar. Quedan guardados solo en esta app.'})), ...banner());
+  const tel = h('div',{class:'card'}, h('h2',{text:'Teléfonos de emergencia (10.4 del procedimiento)'}));
+  c.telefonos.forEach((t,i) => tel.append(h('div',{class:'grid2'}, inp(t[0],'Cargo',v=>t[0]=v,'Cargo '+(i+1)), inp(t[1],'Nombre',v=>t[1]=v,'Nombre '+(i+1)), h('div',{class:'row',style:'flex-wrap:nowrap'}, inp(t[2],'Número de contacto',v=>t[2]=v,'Número '+(i+1)), h('button',{class:'btn sm',onclick:()=>{c.telefonos.splice(i,1); S.contrato=c; render();},text:'Quitar'})))));
+  tel.append(h('div',{class:'row'}, h('button',{class:'btn sm',onclick:()=>{c.telefonos.push(['','','']); S.contrato=c; render();},text:'Agregar teléfono'})));
+  c.dotacion = c.dotacion || {};
+  const dot = h('div',{class:'card'}, h('h2',{text:'Personas trabajadoras del proceso (encabezado de la MIPER)'}),
+    h('div',{class:'grid2'}, ...[['f','Femenino'],['m','Masculino'],['nb','No binario']].map(([kk,l])=>h('label',{class:'f'}, l, inp(c.dotacion[kk],'0',v=>c.dotacion[kk]=v,l)))));
+  const fir = h('div',{class:'card'}, h('h2',{text:'Firmantes de la portada'}));
+  for (const [r,l] of ROLES) fir.append(h('div',{class:'grid2'}, h('div',{style:'font-weight:600;font-size:13px;display:flex;align-items:center;min-height:41px',text:l}), inp(c.firmas[r].nombre,'Nombre',v=>c.firmas[r].nombre=v,l+': nombre'), inp(c.firmas[r].cargo,'Cargo / función',v=>c.firmas[r].cargo=v,l+': cargo')));
+  const ok = h('span',{class:'sub',role:'status'});
+  $main.append(tel, dot, fir, h('div',{class:'row',style:'justify-content:flex-end'}, ok, h('button',{class:'btn pri',disabled:!db,onclick:async()=>{ try { await db.doc('config/contrato').set(JSON.parse(JSON.stringify(c))); S.contrato = c; ok.textContent = 'Guardado.'; } catch(e){ S.err = 'No se pudo guardar ('+(e.code||'error')+').'; render(); } },text:'Guardar datos del contrato'})));
+}
+function cajaFirmas(){
+  const k = S.cur; k.firmas = k.firmas || {}; const f = firmasKit(k);
+  const card = h('div',{class:'card'}, h('div',{}, h('div',{class:'eyebrow',text:'Firmas de este documento'}), h('h2',{text:'Quién firma este kit'})),
+    h('p',{class:'sub',text:'Vienen de "Datos del contrato". Si este kit lo firma otra persona, cámbialo aquí; solo afecta a este kit.'}));
+  for (const [r,l] of ROLES){
+    const n = h('input',{class:'in','aria-label':l+': nombre',placeholder:'Nombre'}); n.value = f[r].nombre;
+    const c = h('input',{class:'in','aria-label':l+': cargo',placeholder:'Cargo / función'}); c.value = f[r].cargo;
+    const up = () => { k.firmas[r] = { nombre: n.value, cargo: c.value }; };
+    n.addEventListener('change', ()=>{ up(); guardar(); }); c.addEventListener('change', ()=>{ up(); guardar(); });
+    card.append(h('div',{class:'grid2'}, h('div',{style:'font-weight:600;font-size:13px;display:flex;align-items:center;min-height:41px',text:l}), n, c));
+  }
+  return card;
+}
+
+/* ---------- biblioteca ---------- */
+function vBiblio(){
+  const M = D.rfmeta || {}; const f = S.bfiltro || 'declarados';
+  const lista = Object.entries(D.rfcat).filter(([c,r]) => rfAmbito(r,f));
+  $main.append(h('div',{}, h('div',{class:'eyebrow',text:'Catálogo de riesgos de fatalidad'}), h('h1',{text:'Riesgos de fatalidad y controles críticos'}),
+    h('p',{class:'sub',text:'Fuente: '+(M.fuente||'SIGO-G-012')+'. '+Object.keys(D.rfcat).length+' RF en total. Actualizado '+(M.actualizado||'')+'.'}),
+    h('div',{class:'row'}, ...[['declarados','Declarados BERLIAM ('+Object.values(D.rfcat).filter(r=>r.declarado).length+')'],['mecanica','Mecánica'],['electrica','Eléctrica'],['todos','Todos los RF']].map(([v,t]) => h('button',{class:'btn sm'+(f===v?' pri':''),onclick:()=>{S.bfiltro=v;render();},text:t}))),
+    h('p',{class:'sub',text:(M.declaracion||'')+' El filtro mecánica/eléctrica es un criterio inicial, a validar con el prevencionista. Si cambia el estándar, se actualiza el catálogo sin tocar los kits ya hechos.'})));
+  for (const [c,r] of lista){
+    const ctrl = x => h('li',{}, h('b',{text:x.cod+': '+x.nombre}),
+      x.pregunta_trabajador ? h('div',{style:'font-size:12px',text:'Trabajador: '+x.pregunta_trabajador}) : null,
+      x.pregunta_supervisor ? h('div',{style:'font-size:12px',text:'Supervisor: '+x.pregunta_supervisor}) : null,
+      h('div',{class:'muted',style:'font-size:12px',text:x.erosion&&x.erosion.length ? x.erosion.length+' factores de erosión (del kit MH-0001)' : 'Sin factores de erosión todavía'}));
+    $main.append(h('div',{class:'card'}, h('h2',{text:c+' · '+r.nombre}),
+      h('div',{class:'row'}, h('span',{class:'chip '+(r.declarado?'g':'n'),text:r.declarado?'Declarado':'No declarado'}), ...(r.ambito||[]).map(a=>h('span',{class:'chip',text:a==='mecanica'?'Mecánica':'Eléctrica'})), r.editado ? h('span',{class:'chip',text:'Editado'}) : null),
+      r.nota ? h('p',{class:'note w',text:r.nota}) : null, h('h3',{text:'Preventivos'}), h('ul',{}, ...r.preventivos.map(ctrl)),
+      h('h3',{text:'Mitigadores'}), h('ul',{}, ...r.mitigadores.map(ctrl)),
+      (r.controles_version_anterior||[]).length ? h('p',{class:'muted',style:'font-size:12px',text:'Controles de la versión anterior con erosión, sin equivalente directo: '+r.controles_version_anterior.map(x=>x.cod+' '+x.nombre).join(' · ')}) : null));
+  }
+}
+
+/* ---------- descargas ---------- */
+let COLECTOR = null;
+async function guardarArchivo(filename, data){
+  if (COLECTOR){ COLECTOR.push([filename, data]); return; }
+  if (!downloads) return;
+  try { await downloads.save({ filename, data }); }
+  catch (e) { if (e.code !== 'declined'){ S.err = 'No se pudo descargar el archivo (' + (e.code||'error') + ').'; render(); } }
+}
+function nombreBase(){ const k = S.cur; return (k.codigo && k.codigo.length > 18 ? k.codigo : 'kit') + '_Rev' + (Number(k.revision)||0) + '_' + (k.titulo||'actividad').replace(/[^\wáéíóúñÁÉÍÓÚÑ ]/g,'').trim().replace(/\s+/g,'_').slice(0,40); }
+function bajarJson(){
+  const k = S.cur;
+  guardarArchivo(nombreBase()+'_kit.json', JSON.stringify({ revision:Number(k.revision)||0, historial:k.historial||[], listado:k.listado, miper:k.miper, procedimiento:k.proc, titulo:k.titulo, codigo:k.codigo, equipo:k.equipo, area:k.area, desc:k.desc }, null, 1));
+}
+function opcionesMapa(k){
+  const F = firmasKit(k); const dot = contratoBase().dotacion || {}; const dm = k.dot_mapa || {};
+  const counts = (dot.f || dot.m || dot.nb) ? [dot.f ?? '', dot.m ?? '', dot.nb ?? ''] : [dm.f ?? '', dm.m ?? '', dm.nb ?? ''];
+  const p = String(k.proceso || '').toUpperCase(); const procesoN = /EL[EÉ]CTR/.test(p) || /-ME-/.test(k.codigo||'') ? 2 : /HIDR/.test(p) || /-MH-/.test(k.codigo||'') ? 3 : /ASEO/.test(p) ? 4 : 1;
+  return { counts, procesoN, firmas: [[F.confecciona.nombre, F.confecciona.cargo], [F.revisa.nombre, F.revisa.cargo], [F.aprueba.nombre, F.aprueba.cargo]] };
+}
+async function mapaOficialKit(k){
+  if (window.armarMapaOficial && window.leerZip && window.DecompressionStream) return await window.armarMapaOficial(k, opcionesMapa(k));
+  return mapaDesdeKit(k);
+}
+async function bajarMapa(){
+  const k = S.cur; S.err = null;
+  try {
+    if (!k.mapaB64 && S.mapa && S.mapa.b64 && S.mapa.archivo === k.mapaArchivo){ k.mapaB64 = S.mapa.b64; guardar(); }
+    await guardarArchivo(nombreBase() + '_mapa_SIGO-F-011.xlsx', k.mapaB64 ? new Blob([deB64(k.mapaB64)]) : await mapaOficialKit(k));
+  } catch (e) { S.err = 'No se pudo armar el mapa (' + (e.message||'error') + ').'; render(); }
+}
+function mapaDesdeKit(k){
+  const filas = [
+    ['Mapa de Procesos, Actividades y Tareas · SIGO-F-011 (armado desde el kit, revisar antes de firmar)'],
+    ['Centro de trabajo','División Radomiro Tomic','Área', k.area || '', 'EE.CC / N° contrato','BERLIAM - 4600031257'],
+    ['Proceso', k.proceso || '', 'Actividad', k.titulo || ''],
+    [],
+    ['N° T','Tareas de la actividad','R/NR','Cargo que realiza la tarea','Lugar específico','N° personas por tarea']];
+  for (const t of (k.listado && k.listado.tareas) || []) filas.push([t.cod_mapa || t.n, t.tarea, t.rnr || '', (t.cargos||[]).join(', '), k.area || k.equipo || '', Number(t.dotacion)||'']);
+  return window.armarXlsx([{ nombre: 'Mapa', filas, anchos: [8,70,7,30,24,12] }]);
+}
+async function bajarKitCompleto(){
+  const k = S.cur; S.err = null; COLECTOR = [];
+  try {
+    if (!k.mapaB64 && S.mapa && S.mapa.b64 && S.mapa.archivo === k.mapaArchivo){ k.mapaB64 = S.mapa.b64; guardar(); }
+    if (k.mapaB64) COLECTOR.push([nombreBase() + '_mapa_SIGO-F-011.xlsx', deB64(k.mapaB64)]);
+    else COLECTOR.push([nombreBase() + '_mapa_SIGO-F-011.xlsx', await mapaOficialKit(k)]);
+    await bajarMiperOficial();
+    if (k.proc) bajarProc();
+    bajarTraz();
+  } catch (e) { S.err = 'No se pudo armar el kit completo (' + (e.message||'error') + ').'; }
+  const lista = COLECTOR; COLECTOR = null;
+  if (!lista.length){ render(); return; }
+  const files = [];
+  for (const [n, d] of lista) files.push([n, d instanceof Blob ? new Uint8Array(await d.arrayBuffer()) : d]);
+  S.busy = null; render();
+  await guardarArchivo(nombreBase() + '_kit_completo.zip', zip(files, 'application/zip'));
+}
+function bajarMiper(){
+  const k = S.cur;
+  if (!window.XLSX){ S.err = 'No cargó el generador de Excel. Recarga la página e inténtalo de nuevo; el kit queda guardado.'; render(); return; }
+  const cab = [
+    ['MATRIZ DE IDENTIFICACIÓN DE PELIGROS Y EVALUACIÓN DE RIESGOS · SIGO-F-006 v7'],
+    ['Empresa: BERLIAM','','','Contrato: 4600031257','','','División Radomiro Tomic'],
+    ['Actividad: '+k.titulo,'','','Procedimiento: '+k.codigo+' · Rev. '+(Number(k.revision)||0),'','','Fecha: '+new Date().toLocaleDateString('es-CL')],
+    [],
+    ['N°','Tarea','Cargo','N° personas','Peligro','Categoría','Código','P','C','VEP','Nivel de riesgo','Medidas de control','Jerarquía','P residual','C residual','VEP residual','Nivel residual','Responsable']
+  ];
+  const rows = k.miper.map(f=>[f.tarea_n,f.tarea,f.cargo,f.dotacion,f.peligro,f.cat,f.codigo,f.P||'NA',f.C||'NA',f.vep,f.niv,f.medidas,f.jerarquia,f.Pr||'NA',f.Cr||'NA',f.vepr,f.nivr,f.resp]);
+  const ws = XLSX.utils.aoa_to_sheet(cab.concat(rows));
+  ws['!cols'] = [6,40,22,8,48,18,34,5,5,8,14,70,22,6,6,8,14,18].map(w=>({wch:w}));
+  ws['!merges'] = [{s:{r:0,c:0},e:{r:0,c:17}}];
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'MIPER');
+  const out = XLSX.write(wb, { bookType:'xlsx', type:'array' });
+  guardarArchivo(nombreBase()+'_MIPER.xlsx', new Blob([out]));
+}
+
+/* ---------- .docx propio (zip sin compresión + WordprocessingML) ---------- */
+const CRC = (()=>{ const t = new Uint32Array(256); for (let n=0;n<256;n++){ let c=n; for (let k=0;k<8;k++) c = c&1 ? 0xEDB88320^(c>>>1) : c>>>1; t[n]=c>>>0; } return t; })();
+function crc32(b){ let c = 0xFFFFFFFF; for (let i=0;i<b.length;i++) c = CRC[(c^b[i])&0xFF]^(c>>>8); return (c^0xFFFFFFFF)>>>0; }
+function zip(files, tipo){
+  const enc = new TextEncoder(); const parts = []; const central = []; let off = 0;
+  for (const [name, data] of files){
+    const nm = enc.encode(name); const d = typeof data === 'string' ? enc.encode(data) : data; const crc = crc32(d);
+    const lh = new DataView(new ArrayBuffer(30)); lh.setUint32(0,0x04034b50,true); lh.setUint16(4,20,true); lh.setUint16(6,0x0800,true); lh.setUint32(14,crc,true); lh.setUint32(18,d.length,true); lh.setUint32(22,d.length,true); lh.setUint16(26,nm.length,true);
+    parts.push(new Uint8Array(lh.buffer), nm, d);
+    const ch = new DataView(new ArrayBuffer(46)); ch.setUint32(0,0x02014b50,true); ch.setUint16(4,20,true); ch.setUint16(6,20,true); ch.setUint16(8,0x0800,true); ch.setUint32(16,crc,true); ch.setUint32(20,d.length,true); ch.setUint32(24,d.length,true); ch.setUint16(28,nm.length,true); ch.setUint32(42,off,true);
+    central.push(new Uint8Array(ch.buffer), nm); off += 30 + nm.length + d.length;
+  }
+  const csize = central.reduce((a,b)=>a+b.length,0);
+  const end = new DataView(new ArrayBuffer(22)); end.setUint32(0,0x06054b50,true); end.setUint16(8,files.length,true); end.setUint16(10,files.length,true); end.setUint32(12,csize,true); end.setUint32(16,off,true);
+  return new Blob([...parts, ...central, new Uint8Array(end.buffer)], { type: tipo || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+}
+window.zipArchivos = zip;
+const ORDEN_NIV = {TOLERABLE:1, MODERADO:2, IMPORTANTE:3, INTOLERABLE:4};
+const maxNiv = arr => arr.filter(x => ORDEN_NIV[x]).sort((a,b) => ORDEN_NIV[b] - ORDEN_NIV[a])[0] || '';
+function bajarTraz(){
+  const k = S.cur; const A = alertas(); const ecf = ((k.proc && k.proc.ecf) || []).join('\n');
+  const filas = [['N°','Tarea (mapa SIGO-F-011)','Código en mapa','R/NR','Cargos','N° personas','Paso del procedimiento '+(k.codigo||''),'Energías','Línea de fuego','RF de la tarea','RF declarado por BERLIAM','Controles críticos (SIGO-G-012 v002)','ECF del kit','Peligros en MIPER (código)','N° peligros propios','Nivel inherente más alto','Nivel residual más alto','Control principal','¿Y si falla?','Observaciones de la revisión']];
+  for (const t of k.listado.tareas){
+    const fs = (k.miper||[]).filter(f => String(f.tarea_n) === String(t.n) && !f.entorno);
+    const cc = t.rf.map(rf => { const r = D.rfcat[rf]; return r ? rf + ': ' + [...r.preventivos, ...r.mitigadores].map(c => c.cod).join(', ') : rf + ': no existe en la G-012'; }).join('\n');
+    const obs = A.filter(a => a[1].startsWith('Tarea ' + t.n + ':')).map(a => a[1].replace(/^Tarea \d+:\s*/, '')).join('\n');
+    filas.push([Number(t.n)||t.n, t.tarea, t.cod_mapa || '', t.rnr, (t.cargos||[]).join(', '), Number(t.dotacion)||'', k.proc ? '5.4 paso ' + t.n : 'Procedimiento sin generar', (t.energias||[]).join(', '), t.linea_fuego || '', t.rf.join(', ') || '—', t.rf.map(rf => rf + (D.rfcat[rf] && D.rfcat[rf].declarado ? ' sí' : ' NO')).join(', ') || '—', cc || '—', ecf, fs.map(f => f.codigo).join('\n'), fs.length, maxNiv(fs.map(f => f.niv)), maxNiv(fs.map(f => f.nivr)), t.control_principal || '', t.y_si_falla || '', obs]);
+  }
+  const rfs = [...new Set(k.listado.tareas.flatMap(t => t.rf))].sort();
+  const res = [['RF','Nombre (SIGO-G-012 v002)','Declarado por BERLIAM','Tareas donde aparece','Tabla en procedimiento','Preventivos','Mitigadores']];
+  for (const rf of rfs){ const r = D.rfcat[rf] || {}; res.push([rf, r.nombre || '', r.declarado ? 'Sí' : 'NO', k.listado.tareas.filter(t => t.rf.includes(rf)).map(t => t.n).join(', '), k.proc && k.proc.rf_tablas.some(x => x.codigo === rf) ? 'Sí' : 'No', (r.preventivos||[]).map(c => c.cod + ' ' + c.nombre).join('\n'), (r.mitigadores||[]).map(c => c.cod + ' ' + c.nombre).join('\n')]); }
+  const enc = [['Campo','Valor'], ...datosTerreno(k).map(x => ['Terreno: ' + x.etiqueta, x.valor || 'PENDIENTE']),['Kit',k.titulo||''],['Código',k.codigo||''],['Revisión',String(Number(k.revision)||0)],['Mapa de origen',k.mapaArchivo||'Descrito en la app'],['Fecha',new Date().toLocaleDateString('es-CL')],['Estado','Borrador para revisión y firma de un prevencionista'],['Observaciones abiertas',String(A.length)]];
+  const blob = window.armarXlsx([
+    { nombre: 'Trazabilidad', filas, anchos: [6,40,10,7,24,9,18,18,24,12,16,30,26,34,9,14,14,30,26,40], nivel: [15,16] },
+    { nombre: 'Resumen RF', filas: res, anchos: [8,34,12,18,12,60,50] },
+    { nombre: 'Kit', filas: enc, anchos: [24,60] }]);
+  guardarArchivo(nombreBase() + '_trazabilidad.xlsx', blob);
+}
+async function bajarMiperOficial(){
+  const k = S.cur; S.err = null;
+  if (!window.armarMiperOficial || !window.DecompressionStream){ S.err = 'Este navegador no puede armar la MIPER oficial. Usa Chrome o Edge actualizados.'; render(); return; }
+  const F = firmasKit(k); const c = contratoBase(); const dot = c.dotacion || {};
+  const pr = k.proceso ? k.proceso.charAt(0) + k.proceso.slice(1).toLowerCase() : /-MM-/.test(k.codigo||'') ? 'Mantenimiento Mecánico' : /-MH-/.test(k.codigo||'') ? 'Mantenimiento Hidráulico' : /-ME-|-MEL-/.test(k.codigo||'') ? 'Mantenimiento Eléctrico' : 'Mantenimiento';
+  const nper = (k.listado.tareas||[]).reduce((a,t)=>Math.max(a, Number(t.dotacion)||0), 0) || Number(k.dotacion) || '';
+  const meta = { proceso: pr, actividad: k.titulo || '', area: k.area || '', nper: Number(k.dotacion) || nper, counts: (dot.f || dot.m || dot.nb) ? [dot.f ?? '', dot.m ?? '', dot.nb ?? ''] : [ (k.dot_mapa||{}).f ?? '', (k.dot_mapa||{}).m ?? '', (k.dot_mapa||{}).nb ?? '' ], hoja: ((k.codigo||'').split('-').slice(-2).join('-') + ' ' + (k.titulo||'MIPER')),
+    firmas: [[F.confecciona.nombre, F.confecciona.cargo || 'Supervisor'], [F.revisa.nombre, F.revisa.cargo || 'Jefe Depto. Prevención de Riesgos'], [F.aprueba.nombre, F.aprueba.cargo || 'Administrador de Contrato']] };
+  S.busy = { t: 'Armando la MIPER oficial' }; render();
+  try {
+    const xlsm = await window.armarMiperOficial(k, meta, []);
+    const nombre = nombreBase() + '_MIPER_SIGO-F-006.xlsm';
+    if (COLECTOR){ S.busy = null; COLECTOR.push([nombre, xlsm]); return; }
+    const paquete = zip([[nombre, new Uint8Array(await xlsm.arrayBuffer())]], 'application/zip');
+    S.busy = null; render();
+    await guardarArchivo(nombreBase() + '_MIPER_SIGO-F-006.zip', paquete);
+  } catch (e) { S.busy = null; S.err = 'No se pudo armar la MIPER oficial (' + (e.message||'error') + '). El kit queda guardado; avisa al administrador.'; render(); }
+}
+const X = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+function run(t, o={}){ return `<w:r><w:rPr>${o.b?'<w:b/>':''}${o.u?'<w:u w:val="single"/>':''}${o.color?`<w:color w:val="${o.color}"/>`:''}<w:sz w:val="${(o.size||9)*2}"/></w:rPr><w:t xml:space="preserve">${X(t)}</w:t></w:r>`; }
+function para(t, o={}){
+  const ppr = `<w:pPr>${o.style?`<w:pStyle w:val="${o.style}"/>`:''}${o.num?'':''}<w:spacing w:before="${o.before||0}" w:after="${o.after==null?60:o.after}"/>${o.ind?`<w:ind w:left="${o.ind}" w:hanging="${o.hang||0}"/>`:''}${o.jc?`<w:jc w:val="${o.jc}"/>`:''}${o.pb?'<w:pageBreakBefore/>':''}</w:pPr>`;
+  const runs = Array.isArray(t) ? t.map(x=>typeof x==='string'?run(x,o):run(x.t,{...o,...x})).join('') : run(t,o);
+  return `<w:p>${ppr}${runs}</w:p>`;
+}
+const bullet = (t,o={}) => para([{t:(o.sym||'•')+'  '},{t}], {ind:o.ind||420, hang:240, after:20, ...o});
+function tbl(widths, rows, o={}){
+  const tw = widths.reduce((a,b)=>a+b,0);
+  const grid = widths.map(w=>`<w:gridCol w:w="${w}"/>`).join('');
+  const brd = '<w:tblBorders>'+['top','left','bottom','right','insideH','insideV'].map(s=>`<w:${s} w:val="single" w:sz="6" w:color="000000"/>`).join('')+'</w:tblBorders>';
+  const trs = rows.map((r,ri)=>{
+    const head = ri===0 && o.head;
+    return `<w:tr>${head?'<w:trPr><w:tblHeader/></w:trPr>':''}${r.map((c,ci)=>{
+      const span = c && c.span ? `<w:gridSpan w:val="${c.span}"/>` : '';
+      const w = c && c.span ? widths.slice(ci, ci+c.span).reduce((a,b)=>a+b,0) : widths[ci];
+      const fill = head ? (o.head==='black'?'000000':'D9D9D9') : (c&&c.fill)||null;
+      const body = c && c.xml ? c.xml : para(c && c.t!=null ? c.t : (c==null?'':c), {b: head || (c&&c.b), color: head&&o.head==='black'?'FFFFFF':null, size: head?9:8.5, jc: head?'center':null, after:20});
+      return `<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/>${span}${fill?`<w:shd w:val="clear" w:color="auto" w:fill="${fill}"/>`:''}<w:vAlign w:val="${(c&&c.top)?'top':'center'}"/></w:tcPr>${body}</w:tc>`;
+    }).join('')}</w:tr>`;
+  }).join('');
+  return `<w:tbl><w:tblPr><w:tblW w:w="${tw}" w:type="dxa"/><w:jc w:val="center"/>${brd}<w:tblLayout w:type="fixed"/></w:tblPr><w:tblGrid>${grid}</w:tblGrid>${trs}</w:tbl>${para('',{after:80})}`;
+}
+const H1 = t => para(t,{style:'Heading1',b:true,before:160,after:80});
+const H2 = t => para(t,{style:'Heading2',b:true,before:120,after:60});
+function bajarProc(){
+  const k = S.cur, p = k.proc, B = D.base;
+  // imágenes de los anexos (mismas que la guía MH-0001)
+  const IMGS = []; let imgId = 10;
+  const img = (nombre, anchoCm, alto) => { const I = (window.IMG_PROC||{})[nombre]; if (!I) return para('[Falta imagen: '+nombre+']',{color:'595959'});
+    let rid = 'rIdI_' + nombre; if (!IMGS.find(x => x[0] === nombre)) IMGS.push([nombre, I]);
+    let cx = Math.round(anchoCm * 360000), cy = Math.round(cx * I.h / I.w); if (alto){ cy = Math.round(alto * 360000); cx = Math.round(cy * I.w / I.h); }
+    const id = ++imgId;
+    return `<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="${id}" name="${nombre}"/><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="${id}" name="${nombre}.${I.ext}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${rid}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`; };
+  const imgP = (nombre, anchoCm) => `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="60" w:after="120"/></w:pPr>${img(nombre, anchoCm)}</w:p>`;
+  const salto = '<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
+  let x = '';
+  // portada
+  for (let i=0;i<8;i++) x += para('');
+  x += para(p.titulo,{b:true,size:12,jc:'center',after:0}) + para(p.codigo,{b:true,size:12,jc:'center',after:0}) + para('Revisión '+(p.revision||'0')+' · '+(p.fecha_emision||''),{size:10,jc:'center'});
+  for (let i=0;i<10;i++) x += para('');
+  const firma = l => l.map(([t,b])=>para(t,{b:true,u:b,after:40})).join('');
+  const FK = firmasKit(k); const nm = (r,lbl) => lbl + (FK[r].nombre || '____________________'); const cg = r => 'Cargo/Función: ' + (FK[r].cargo || '________________');
+  x += tbl([5300,5300],[[{xml:firma([['Confeccionado por:',1],[nm('confecciona','Nombre/s: ')],[cg('confecciona')],['Firma/s: ______________________'],[''],['Toma Conocimiento Comité Paritario:'],[nm('cphs','Nombre: ')],['Firma: _______________________']]),top:1},{xml:firma([['Aprobado por Administrador de Contrato:',1],[nm('aprueba','Nombre: ')],['Firma: _______________________'],[''],['Revisado por Jefe Depto. Prevención de Riesgos:',1],[nm('revisa','Nombre: ')],['Firma: _______________________']]),top:1}],[{t:'Fecha de emisión/actualización: '+p.fecha_emision,span:2}]]);
+  x += para('Este documento aplica a Veltis y sus tres compañías operativas',{jc:'center',after:0}) + para('Steel, Berliam, Walvis',{jc:'center'});
+  // historial e índice
+  x += para('HISTORIAL DEL CAMBIO',{b:true,pb:true,after:80});
+  x += tbl([1200,5600,1600,2000],[['REVISIÓN','CONTROL DEL CAMBIO','ÍTEM','FECHA DEL CAMBIO'],...p.historial.map(r=>r.map(String))],{head:'gray'});
+  x += para('TABLA DE CONTENIDO',{b:true,after:60});
+  x += `<w:p><w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText xml:space="preserve"> TOC \\o "1-2" \\h \\z \\u </w:instrText></w:r><w:r><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:t>Actualiza el índice: clic derecho → Actualizar campo.</w:t></w:r><w:r><w:fldChar w:fldCharType="end"/></w:r></w:p>`;
+  // 1-4
+  x += para('',{pb:true}) + H1('1. OBJETIVO') + para(p.objetivo||B.objetivo,{ind:450,jc:'both'});
+  x += H1('2. ALCANCE') + B.alcance.map(a=>para(a.replace('{titulo}',p.titulo),{ind:450,jc:'both'})).join('');
+  x += H1('3. RESPONSABILIDADES') + tbl([2900,7700],[['FUNCIÓN','RESPONSABILIDADES'],...B.responsabilidades.map(([f,it])=>[{t:f,b:true},{xml:it.map(i=>bullet(i,{size:8.5,ind:300})).join('')}])],{head:'gray'});
+  x += H1('4. DEFINICIONES Y ABREVIATURAS') + tbl([2600,8000],[['Término','Definición'],...B.definiciones.map(([t,d])=>[{t,b:true},d])],{head:'gray'});
+  // 5
+  x += H1('5. DESARROLLO DE LA ACTIVIDAD') + H2('5.1 PUNTOS DE BLOQUEO') + para(B.bloqueo_intro);
+  for (const b of p.bloqueo) x += tbl([2200,3400,2800,2200],[['ÁREA DE TRABAJO','EQUIPOS A BLOQUEAR','TAG EQUIPOS','SALA ELÉCTRICA'],...b.filas.map((f,i)=>[{t:i?'':b.area,b:true},f[0],f[1]||'[completar TAG]',f[2]])],{head:'black'});
+  x += para(B.bloqueo_nota) + para('NOTA: En base a:',{b:true}) + B.bloqueo_base.map(t=>bullet(t)).join('');
+  x += H2('5.2 HERRAMIENTAS, MATERIALES Y EPP');
+  const R = p.recursos, caja = (t,l)=>({top:1, xml: para(t,{b:true,after:40}) + (l.length?l:['[completar]']).map(i=>bullet(i,{sym:'✓',size:8.5,ind:300})).join('')});
+  x += tbl([5300,5300],[[caja('INSUMOS',R.insumos),caja('HERRAMIENTAS',R.herramientas)],[caja('EQUIPOS DE APOYO',R.equipos_apoyo),caja('REPUESTOS',R.repuestos)],[caja('ELEMENTOS DE PROTECCIÓN PERSONAL',[...new Set([...B.epp_base,...R.epp])]),caja('EQUIPOS DE PROTECCIÓN PERSONAL ESPECÍFICOS',R.epp_especificos)]]);
+  x += H2('5.3 ACTIVIDADES PREVIAS AL MANTENIMIENTO') + para('Antes de ejecutar el trabajo se deben realizar las siguientes tareas:') + B.previas.map(([t,d])=>para(t,{b:true,before:60,after:20})+para(d,{jc:'both'})).join('');
+  x += H2('5.4 PASO A PASO DE LA ACTIVIDAD') + tbl([10600],[['DESCRIPCIÓN DE LA TAREA'],...p.pasos.map(s=>[{xml:para(s.n+'  '+s.t,{size:8.5,ind:500,hang:500,after:20})}])],{head:'black'});
+  x += para('PELIGROS, RIESGOS Y CONTROLES CRÍTICOS',{b:true,before:120});
+  for (const r of p.rf_tablas){
+    let m = r.medidas.map(t=>bullet(t,{size:8.5,ind:300})).join('');
+    const bloque = (lbl, arr) => arr.length ? para(lbl,{b:true,u:true,size:8.5,after:20}) + arr.map(c=>bullet(c.cod+': '+c.nombre,{b:true,size:8.5,ind:300}) + ((c.erosion||[]).length ? para('Factores de erosión del control:',{u:true,size:7.5,ind:500,after:10}) + c.erosion.map(e=>bullet(e,{size:7.5,color:'595959',ind:760})).join('') : '')).join('') : '';
+    m += bloque('Controles Preventivos:', r.preventivos) + bloque('Controles Mitigadores:', r.mitigadores);
+    if (r.sin_catalogo) m += para('[Completar controles críticos y factores de erosión con SIGO-G-012]',{size:8.5,color:'B42318'});
+    x += para(r.codigo+' '+r.titulo,{size:10,before:120,after:40}) + tbl([2700,7900],[['RIESGO','MEDIDA DE CONTROL'],[{xml:r.riesgos.map((t,i)=>bullet(t,{sym:(i+1)+'.',size:8.5,ind:300})).join('')||para(''),},{xml:m,top:1}]],{head:'black'});
+  }
+  x += para('GESTIÓN DE RESIDUOS',{b:true,before:120}) + tbl([5300,5300],[['RIESGO','MEDIDA DE CONTROL'],[{xml:B.residuos[0].map((t,i)=>bullet(t,{sym:(i+1)+'.',size:8.5,ind:300})).join(''),top:1},{xml:B.residuos[1].map((t,i)=>bullet(t,{sym:(i+1)+'.',size:8.5,ind:300})).join(''),top:1}]],{head:'black'});
+  x += H2('5.5 ACTIVIDADES POST MANTENIMIENTO') + B.post.map(([t,d])=>para(t,{b:true,before:60,after:20})+para(d,{jc:'both'})).join('');
+  // 6-12
+  x += H1('6. RIESGOS DE FATALIDAD') + p.rf.map(c=>bullet(B.rf_desc[c]||(c+' '+(RF_NOMBRES[c]||'')+': [completar descripción]'))).join('');
+  x += H1('7. DIAGRAMA DE PROCESO') + bullet('N/A');
+  x += H1('8. DOCUMENTACIÓN') + H2('8.1 DOCUMENTACIÓN DE REFERENCIA') + B.documentacion.map(t=>bullet(t)).join('');
+  x += H1('9. REFERENCIAS LEGALES, NORMATIVAS Y OTRAS ASOCIADAS AL PROCEDIMIENTO') + B.legales.map(t=>bullet(t)).join('');
+  x += H1('10. ANEXOS') + H2('10.1 E.C.F APLICABLES') + (p.ecf.length?p.ecf:['[completar]']).map(t=>bullet(t)).join('');
+  x += H2('10.2 RIESGOS DE FATALIDAD APLICABLES') + para(B.rf_contrato_texto) + imgP('rf_aplicables', 16);
+  x += H2('10.3 E.S.T APLICABLES') + imgP('est_aplicables', 15);
+  x += H2('10.4 IMPACTO AL MEDIOAMBIENTE') + B.impacto_texto.map(t=>para(t)).join('') + tbl([600,3300,2900,3800],[['N°','DESCRIPCIÓN DEL ASPECTO AMBIENTAL','EFECTOS POSIBLES (IMPACTO AMBIENTAL)','CONTROLES OPERACIONALES'],...(p.aspectos||B.aspectos).map((a,i)=>[String(i+1),...a])],{head:'gray'});
+  x += H2('10.5 PROTECCIÓN AL MEDIOAMBIENTE') + tbl([3500,7100],[['CONTENEDOR','TIPO DE RESIDUO'],...(window.CONTENEDORES||[]).map(([im,txt,items])=>[{xml:`<w:p><w:pPr><w:jc w:val="center"/></w:pPr>${img(im.split('.')[0], 0, 2.4)}</w:p>`},{xml:(txt?para(txt):'')+items.map(t=>bullet(t)).join('')}])],{head:'gray'});
+  x += H2('10.6 TELÉFONOS DE EMERGENCIA') + para('Cualquier persona que detecte la emergencia deberá comunicarlo inmediatamente por teléfono a:') + tbl([3600,3600,3400],[['CARGO','NOMBRE','NÚMERO DE CONTACTO'],...contratoBase().telefonos.map(t=>[{t:t[0]||'',b:true},t[1]||'[completar]',t[2]||'[completar]'])],{head:'gray'}) + imgP('tipos_emergencia', 16);
+  x += H2('10.7 PROTOCOLOS DE COMUNICACIONES DE EMERGENCIA') + imgP('protocolo_drt', 12) + salto + imgP('protocolo_berliam', 14);
+  x += para('11. EVALUACIÓN DE PROCEDIMIENTO',{style:'Heading1',b:true,pb:true,after:80}) + tbl([5300,5300],[[{t:'EVALUACIÓN DE PROCEDIMIENTO DE TRABAJO',span:2,b:true,fill:'D9D9D9'}],[{t:'FECHA DE EVALUACIÓN:',b:true},{t:'NOTA EVALUACIÓN:',b:true}],[{t:'NOMBRE Y FIRMA TRABAJADOR:',b:true},{t:'NOMBRE Y FIRMA SUPERVISOR:',b:true}],...p.evaluacion.map((q,i)=>[{xml:para((i+1)+'.- '+q)+para('')+para(''),span:2}]),[{xml:para('Observaciones:')+para('')+para(''),span:2}]]);
+  x += para('12. REGISTRO DE DIFUSIÓN',{style:'Heading1',b:true,pb:true,after:80}) + tbl([600,4200,1800,2200,1800],[['N°','NOMBRE','RUT','FIRMA','FECHA'],...Array.from({length:25},(_,i)=>[String(i+1),'','','',''])],{head:'gray'});
+  x += tbl([5300,5300],[[{t:'ASPECTOS RELEVANTES DE LA CAPACITACIÓN',span:2,b:true}],[{xml:para('')+para(''),span:2}],[{t:'NOMBRE DEL RELATOR:',b:true},{t:'FIRMA RELATOR:',b:true}]]);
+
+  const W = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"';
+  const sect = `<w:sectPr><w:headerReference w:type="default" r:id="rIdH"/><w:footerReference w:type="default" r:id="rIdF"/><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="680" w:right="850" w:bottom="850" w:left="850" w:header="340" w:footer="340" w:gutter="0"/></w:sectPr>`;
+  const docXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document ${W}><w:body>${x}${sect}</w:body></w:document>`;
+  const cx = 1650000, cy = Math.round(cx*96/433);
+  const logo = `<w:r><w:drawing><wp:inline><wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="1" name="logo"/><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="1" name="logo.jpg"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rIdL"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
+  const hdr = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:hdr ${W}><w:tbl><w:tblPr><w:tblW w:w="10540" w:type="dxa"/><w:tblLayout w:type="fixed"/></w:tblPr><w:tblGrid><w:gridCol w:w="3000"/><w:gridCol w:w="7540"/></w:tblGrid><w:tr><w:tc><w:tcPr><w:tcW w:w="3000" w:type="dxa"/></w:tcPr><w:p>${logo}</w:p></w:tc><w:tc><w:tcPr><w:tcW w:w="7540" w:type="dxa"/></w:tcPr>${para(p.titulo,{size:10,jc:'right',after:0})}${para(p.codigo,{size:9,jc:'right',color:'595959'})}</w:tc></w:tr></w:tbl><w:p><w:pPr><w:pBdr><w:bottom w:val="single" w:sz="18" w:space="1" w:color="808080"/></w:pBdr></w:pPr></w:p></w:hdr>`;
+  const fld = c => `<w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText xml:space="preserve"> ${c} </w:instrText></w:r><w:r><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:t>1</w:t></w:r><w:r><w:fldChar w:fldCharType="end"/></w:r>`;
+  const ftr = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:ftr ${W}><w:p><w:pPr><w:jc w:val="center"/></w:pPr>${run('Página ',{size:10})}${fld('PAGE')}${run(' de ',{size:10})}${fld('NUMPAGES')}</w:p></w:ftr>`;
+  const styles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Tahoma" w:hAnsi="Tahoma" w:eastAsia="Tahoma" w:cs="Tahoma"/><w:sz w:val="18"/><w:lang w:val="es-CL"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="60" w:line="240" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style><w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:pPr><w:keepNext/><w:outlineLvl w:val="0"/></w:pPr><w:rPr><w:b/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="heading 2"/><w:basedOn w:val="Normal"/><w:pPr><w:keepNext/><w:outlineLvl w:val="1"/></w:pPr><w:rPr><w:b/></w:rPr></w:style></w:styles>`;
+  const settings = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:settings xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:updateFields w:val="true"/></w:settings>`;
+  const ct = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="jpg" ContentType="image/jpeg"/><Default Extension="png" ContentType="image/png"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/><Override PartName="/word/settings.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml"/><Override PartName="/word/header1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"/><Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/></Types>`;
+  const rels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`;
+  const drels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdS" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/><Relationship Id="rIdT" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings" Target="settings.xml"/><Relationship Id="rIdH" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header1.xml"/><Relationship Id="rIdF" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/>${IMGS.map(([n,I])=>`<Relationship Id="rIdI_${n}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${n}.${I.ext}"/>`).join('')}</Relationships>`;
+  const hrels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdL" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/logo.jpg"/></Relationships>`;
+  const logoBytes = Uint8Array.from(atob(D.logo), c=>c.charCodeAt(0));
+  const blob = zip([['[Content_Types].xml',ct],['_rels/.rels',rels],['word/document.xml',docXml],['word/_rels/document.xml.rels',drels],['word/styles.xml',styles],['word/settings.xml',settings],['word/header1.xml',hdr],['word/footer1.xml',ftr],['word/_rels/header1.xml.rels',hrels],['word/media/logo.jpg',logoBytes], ...IMGS.map(([n,I])=>['word/media/'+n+'.'+I.ext, Uint8Array.from(atob(I.b64), c=>c.charCodeAt(0))])]);
+  guardarArchivo(nombreBase()+'_procedimiento.docx', blob);
+}
+render();
+})();
+</script>
+
+
+</body></html>

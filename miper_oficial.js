@@ -4,7 +4,7 @@
 'use strict';
 async function cargarPlantilla(){
   if (!window.PLANTILLA_MIPER){
-    await new Promise((ok, ko) => { const s = document.createElement('script'); s.src = 'plantilla_miper.js'; s.onload = ok; s.onerror = () => ko(new Error('plantilla')); document.head.appendChild(s); });
+    await new Promise((ok, ko) => { const s = document.createElement('script'); s.src = 'plantilla_miper.js?v=803afbd9'; s.onload = ok; s.onerror = () => ko(new Error('plantilla')); document.head.appendChild(s); });
   }
   const bin = atob(window.PLANTILLA_MIPER); const u = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);

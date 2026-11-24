@@ -179,7 +179,7 @@ async function panelUsuarios(recien){
 function claveAzar(){ const a = 'abcdefghjkmnpqrstuvwxyz23456789'; const r = new Uint32Array(10); crypto.getRandomValues(r); return Array.from(r, n => a[n % a.length]).join(''); }
 function linkApp(){ return location.origin + location.pathname.replace(/index\.html$/, ''); }
 function cajaEnvio(email, clave, tel, nueva){
-  const txt = 'Hola, ' + (nueva ? 'te dejé una contraseña nueva' : 'te creé una cuenta') + ' en Kits SSO (BERLIAM).\n\nEntra aquí: ' + linkApp() + '\nCorreo: ' + email + '\nContraseña: ' + clave + '\n\nAl entrar, cámbiala con el botón "Cambiar contraseña".';
+  const txt = '👋 *¡Hola!*\n\n' + (nueva ? 'Te dejé una *contraseña nueva* para' : 'Te creé una cuenta en') + ' *Kits SSO · BERLIAM*, la app para armar los kits de seguridad (listado, MIPER y procedimiento).\n\n🔗 *Entra aquí:*\n' + linkApp() + '\n\n📧 *Correo:* ' + email + '\n🔑 *Contraseña:* ```' + clave + '```\n\n✅ Apenas entres, cámbiala con el botón *Cambiar contraseña*.\n\n_Mensaje enviado desde Kits SSO_';
   let num = String(tel || '').replace(/\D/g, ''); if (num.length === 9 && num[0] === '9') num = '56' + num;
   const wa = 'https://wa.me/' + num + '?text=' + encodeURIComponent(txt);
   const ok = el('span', { style: 'font-size:13px;color:#15803d;margin-left:8px' });

@@ -103,6 +103,7 @@ table.t td.c{text-align:center;font-variant-numeric:tabular-nums}
 .emp b{font-family:var(--f-display);font-size:20px}
 .kitrow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:12px 0;border-top:1px solid var(--line)}
 .kitrow:first-child{border-top:0}
+@media (max-width:640px){.kitrow{grid-template-columns:minmax(0,1fr)}}
 .doc h3{font-size:13px;margin:14px 0 4px;text-transform:uppercase}
 .doc p,.doc li{font-size:13px;line-height:1.55}
 .doc .ero{color:var(--muted);font-size:12px}
@@ -245,11 +246,44 @@ function vPanel(){
   else for (const k of S.kits){
     const ft = datosTerreno(k).filter(x => !x.valor).length;
     const est = k.proc && ft ? ['Faltan ' + ft + ' datos de terreno','w'] : k.proc ? ['Kit completo','g'] : k.miper ? ['MIPER lista','w'] : k.aprobado ? ['Listado aprobado','w'] : k.listado ? ['Listado por revisar','n'] : ['Borrador','n'];
+    if (S.editKit === k.id){
+      const ti = h('input',{type:'text',value:k.titulo||'','aria-label':'Nombre de la actividad',style:'flex:2;min-width:180px'});
+      const co = h('input',{type:'text',value:k.codigo||'','aria-label':'Código del procedimiento',style:'flex:1;min-width:150px'});
+      const msg = h('span',{class:'sub'});
+      lista.append(h('div',{class:'kitrow',style:'flex-wrap:wrap;gap:8px'},
+        h('div',{class:'row',style:'flex:1;min-width:0;flex-wrap:wrap'}, ti, co),
+        h('div',{class:'row'}, msg,
+          h('button',{class:'btn sm',onclick:()=>{S.editKit=null;render();},text:'Cancelar'}),
+          h('button',{class:'btn sm pri',onclick:async()=>{
+            const t = ti.value.trim(), c = co.value.trim();
+            if (!t){ msg.textContent = 'Escribe el nombre.'; return; }
+            if (c && S.kits.find(x => x.id !== k.id && String(x.codigo||'').trim() === c)){ msg.textContent = 'Ese código ya lo usa otro kit.'; return; }
+            const o = { ...k, titulo: t, codigo: c, actualizado: new Date().toISOString() };
+            try { await db.doc('kits/' + k.id).set(o); Object.assign(k, o); S.editKit = null; S.aviso = 'Kit actualizado.'; render(); }
+            catch(e){ msg.textContent = 'No se pudo guardar (' + (e.code||'error') + ').'; }
+          },text:'Guardar'}))));
+      continue;
+    }
+    const acc = S.borrarKit === k.id
+      ? h('div',{class:'row'}, h('span',{class:'sub',style:'color:var(--bad,#b3261e)',text:'¿Borrar este kit? No se puede deshacer.'}),
+          h('button',{class:'btn sm',onclick:()=>{S.borrarKit=null;render();},text:'Cancelar'}),
+          h('button',{class:'btn sm',style:'background:#b3261e;color:#fff;border-color:#b3261e',onclick:()=>borrarKit(k),text:'Sí, borrar'}))
+      : h('div',{class:'row'}, h('span',{class:'chip '+est[1],text:est[0]}),
+          h('button',{class:'btn sm',onclick:()=>abrir(k),text:'Abrir'}),
+          h('button',{class:'btn sm',title:'Cambiar nombre o código. Para corregir tareas, MIPER o procedimiento usa Abrir.',onclick:()=>{S.editKit=k.id;S.borrarKit=null;render();},text:'Editar'}),
+          h('button',{class:'btn sm',onclick:()=>{S.borrarKit=k.id;S.editKit=null;render();},text:'Borrar'}));
     lista.append(h('div',{class:'kitrow'},
       h('div',{style:'min-width:0'}, h('b',{text:k.titulo || 'Actividad sin título'}), h('div',{class:'sub',text:(k.codigo||'Sin código') + ' · ' + ((k.listado&&k.listado.tareas)||[]).length + ' tareas · ' + new Date(k.actualizado||Date.now()).toLocaleDateString('es-CL')})),
-      h('div',{class:'row'}, h('span',{class:'chip '+est[1],text:est[0]}), h('button',{class:'btn sm',onclick:()=>abrir(k),text:'Abrir'}))));
+      acc));
   }
   $main.append(flujo, lista);
+}
+async function borrarKit(k){
+  try {
+    for (const [parte, n] of Object.entries(k._partes || {})) for (let i = 0; i < n; i++) await db.doc('kitpartes/' + k.id + '__' + parte + '__' + i).delete();
+    await db.doc('kits/' + k.id).delete();
+    S.kits = S.kits.filter(x => x.id !== k.id); S.borrarKit = null; S.aviso = 'Kit borrado.'; render();
+  } catch(e){ S.borrarKit = null; S.err = 'No se pudo borrar el kit (' + (e.code||'error') + ').'; render(); }
 }
 async function cargarPartes(k){
   if (!db || !k._partes) return k;
@@ -581,7 +615,6 @@ function paso3(){
     k.revisado ? null : h('button',{class:'btn sm',onclick:()=>{S.step=2;render();},text:'Volver al listado'}),
     h('button',{class:'btn sm pri',disabled:!downloads||!!S.busy,onclick:bajarKitCompleto,text:'Descargar kit completo (.zip)'}),
     h('button',{class:'btn sm',disabled:!downloads,onclick:bajarMiperOficial,text:'MIPER oficial SIGO-F-006 (.xlsm)'}),
-    h('button',{class:'btn sm',disabled:!downloads,onclick:bajarMiper,text:'MIPER simple (.xlsx)'}),
     h('button',{class:'btn sm',disabled:!downloads,onclick:bajarMapa,text:'Mapa SIGO-F-011 (.xlsx)'}),
     h('button',{class:'btn sm',disabled:!downloads,onclick:bajarTraz,text:'Trazabilidad (.xlsx)'}),
     h('button',{class:'btn sm',disabled:!downloads||!k.proc,onclick:bajarProc,text:'Descargar procedimiento (.docx)'}));

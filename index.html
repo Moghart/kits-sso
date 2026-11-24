@@ -128,6 +128,7 @@ table.t td.c{text-align:center;font-variant-numeric:tabular-nums}
 <script src="miper_oficial.js"></script>
 <script src="mapa.js"></script>
 <script src="traz.js"></script>
+<script src="revisar.js"></script>
 <script src="mapa_oficial.js"></script>
 <script src="imagenes_proc.js"></script>
 <script>
@@ -178,12 +179,12 @@ async function guardar(){
   try {
     // La MIPER y el procedimiento pueden pasar el máximo de 256 KB por documento: se guardan aparte, en trozos.
     const o = JSON.parse(JSON.stringify(S.cur)); o._partes = {};
-    for (const parte of ['miper','proc','mapaB64']){
+    for (const parte of ['miper','proc','mapaB64','revisionExt']){
       if (!o[parte]) continue;
       const txt = JSON.stringify(o[parte]); const n = Math.ceil(txt.length / 80000);
       for (let i = 0; i < n; i++) await db.doc('kitpartes/' + o.id + '__' + parte + '__' + i).set({ kit: o.id, parte, i, n, s: txt.slice(i*80000, (i+1)*80000) });
       o._partes[parte] = n;
-      if (parte === 'mapaB64') o.mapaB64 = null; else if (parte === 'miper'){ o._mcodigos = [...new Set(o.miper.map(f => f.codigo))]; o.miper = { _aparte: true }; } else o.proc = { _aparte: true, bloqueo: o.proc.bloqueo || [] };
+      if (parte === 'mapaB64') o.mapaB64 = null; else if (parte === 'revisionExt') o.revisionExt = { _aparte: true }; else if (parte === 'miper'){ o._mcodigos = [...new Set(o.miper.map(f => f.codigo))]; o.miper = { _aparte: true }; } else o.proc = { _aparte: true, bloqueo: o.proc.bloqueo || [] };
     }
     await db.doc('kits/' + o.id).set(o);
   } catch (e) { S.err = 'No se pudo guardar el kit (' + (e.code || 'error') + '). Sigue disponible mientras no cierres la página.'; render(); }
@@ -196,8 +197,8 @@ function renderNav(){
   document.getElementById('empLabel').textContent = S.empresa ? 'BERLIAM · Codelco DRT' : 'Elige una empresa';
   const foot = document.getElementById('navFoot'); foot.textContent = '';
   if (!S.empresa) return;
-  const items = [['panel','Panel','Kits del contrato'],['nueva','Actividad nueva','Crear kit desde cero'],['biblioteca','Biblioteca','Riesgos de fatalidad y controles'],['contrato','Datos del contrato','Teléfonos y firmantes'],['aprendizaje','Aprendizaje','Lo que la app ha aprendido']];
-  for (const [v,l,s] of items) nav.append(h('button', { 'aria-current': (S.view === v || (v==='nueva' && S.view==='kit')) ? 'page' : null, onclick: () => { if (v==='nueva') nuevaActividad(); else go(v); } }, h('span',{text:l}), h('small',{text:s})));
+  const items = [['panel','Panel','Kits del contrato'],['nueva','Actividad nueva','Crear kit desde cero'],['biblioteca','Biblioteca','Riesgos de fatalidad y controles'],['contrato','Datos del contrato','Teléfonos y firmantes'],['revisar','Revisar documentos','MIPER y procedimientos existentes'],['aprendizaje','Aprendizaje','Lo que la app ha aprendido']];
+  for (const [v,l,s] of items) nav.append(h('button', { 'aria-current': (S.view === v || (S.view==='kit' && v === (S.cur && S.cur.revisado ? 'revisar' : 'nueva'))) ? 'page' : null, onclick: () => { if (v==='nueva') nuevaActividad(); else go(v); } }, h('span',{text:l}), h('small',{text:s})));
 }
 function render(){
   renderNav(); $main.textContent = '';
@@ -209,6 +210,7 @@ function render(){
   if (v === 'contrato') return vContrato();
   if (v === 'aprendizaje') return vAprendizaje();
   if (v === 'mapa') return vMapa();
+  if (v === 'revisar') return vRevisar();
 }
 function banner(){
   const out = [];
@@ -499,8 +501,8 @@ function vKit(){
   const k = S.cur;
   const pasos = ['Describir','Listado y visto bueno','MIPER y procedimiento'];
   $main.append(h('div',{class:'row between'},
-    h('div',{style:'min-width:0'}, h('div',{class:'eyebrow',text:'Actividad nueva · BERLIAM DRT'}), h('h1',{text:k.titulo || 'Kit sin título'})),
-    h('ol',{class:'steps','aria-label':'Pasos'}, ...pasos.map((p,i)=>h('li',{class: S.step===i+1?'on':(S.step>i+1?'done':''), text:(i+1)+'. '+p})))), ...banner());
+    h('div',{style:'min-width:0'}, h('div',{class:'eyebrow',text: k.revisado ? 'Revisión de documentos existentes · BERLIAM DRT' : 'Actividad nueva · BERLIAM DRT'}), h('h1',{text:k.titulo || 'Kit sin título'})),
+    k.revisado ? null : h('ol',{class:'steps','aria-label':'Pasos'}, ...pasos.map((p,i)=>h('li',{class: S.step===i+1?'on':(S.step>i+1?'done':''), text:(i+1)+'. '+p})))), ...banner());
   if (S.busy) $main.append(h('div',{class:'busy',role:'status'}, h('div',{class:'spin'}), h('div',{}, h('div',{text:S.busy.t}), h('div',{id:'busyN',style:'font-weight:400;font-size:12px',text:'Pensando… puede tardar uno o dos minutos.'})), h('button',{class:'btn sm',style:'margin-left:auto',onclick:()=>ctl&&ctl.abort(),text:'Detener'})));
   if (S.step === 1) paso1(); else if (S.step === 2) paso2(); else paso3();
 }
@@ -573,9 +575,9 @@ function paso3(){
   const k = S.cur;
   if (!k.miper){ $main.append(h('div',{class:'card'}, h('p',{text:'La MIPER todavía no se genera.'}), h('button',{class:'btn pri',disabled:!sample||!!S.busy,onclick:generarMiper,text:'Generar MIPER'}))); return; }
   const A = alertas();
-  const tabs = h('div',{class:'tabs',role:'tablist'}, ...[['miper','MIPER SIGO-F-006'],['proc','Procedimiento'],['mapa','Mapa de procesos'],['traz','Trazabilidad'],['rev','Revisión ('+A.length+')']].map(([v,l])=>h('button',{role:'tab','aria-selected':S.tab===v?'true':'false',onclick:()=>{S.tab=v;render();},text:l})));
+  const tabs = h('div',{class:'tabs',role:'tablist'}, ...[...(k.revisionExt ? [['hall','Hallazgos (' + k.revisionExt.hallazgos.filter(x => x.estado === 'pendiente').length + ' pendientes)']] : []),['miper','MIPER SIGO-F-006'],['proc','Procedimiento'],['mapa','Mapa de procesos'],['traz','Trazabilidad'],['rev','Revisión ('+A.length+')']].map(([v,l])=>h('button',{role:'tab','aria-selected':S.tab===v?'true':'false',onclick:()=>{S.tab=v;render();},text:l})));
   const acciones = h('div',{class:'row'},
-    h('button',{class:'btn sm',onclick:()=>{S.step=2;render();},text:'Volver al listado'}),
+    k.revisado ? null : h('button',{class:'btn sm',onclick:()=>{S.step=2;render();},text:'Volver al listado'}),
     h('button',{class:'btn sm pri',disabled:!downloads||!!S.busy,onclick:bajarKitCompleto,text:'Descargar kit completo (.zip)'}),
     h('button',{class:'btn sm',disabled:!downloads,onclick:bajarMiperOficial,text:'MIPER oficial SIGO-F-006 (.xlsm)'}),
     h('button',{class:'btn sm',disabled:!downloads,onclick:bajarMiper,text:'MIPER simple (.xlsx)'}),
@@ -583,7 +585,7 @@ function paso3(){
     h('button',{class:'btn sm',disabled:!downloads,onclick:bajarTraz,text:'Trazabilidad (.xlsx)'}),
     h('button',{class:'btn sm',disabled:!downloads||!k.proc,onclick:bajarProc,text:'Descargar procedimiento (.docx)'}));
   $main.append(h('div',{class:'card'}, h('div',{class:'row between'}, tabs, acciones),
-    S.tab==='miper'? tablaMiper() : S.tab==='proc'? vistaProc() : S.tab==='mapa'? tablaMapa() : S.tab==='traz'? vistaTraz() : vistaRev(A)));
+    S.tab==='hall' && k.revisionExt ? vistaHallazgos() : S.tab==='miper'? tablaMiper() : S.tab==='proc'? vistaProc() : S.tab==='mapa'? tablaMapa() : S.tab==='traz'? vistaTraz() : vistaRev(A)));
   const usadas = Object.entries(k.respuestas||{}).filter(([,v]) => v && v.trim());
   if (usadas.length) $main.append(h('div',{class:'card'}, h('div',{class:'eyebrow',text:'Preguntas'}), h('h2',{text:'Lo que cambió con tus respuestas'}),
     h('div',{class:'tw'}, h('table',{class:'t'}, h('thead',{}, h('tr',{}, ...['Pregunta','Tu respuesta','Cambio en la MIPER'].map(x=>h('th',{text:x})))),
@@ -798,6 +800,218 @@ function vMapa(){
   });
 }
 
+/* ---------- revisar documentos existentes ---------- */
+const RV = { miper: null, proc: null, mapa: null };
+const PRIO = { CRITICO: ['Crítico','b'], MAYOR: ['Mayor','w'], FORMA: ['Forma','n'] };
+function reglasParaRevision(parte){
+  const act = APR.filter(a => (a.estado === 'fija' || a.estado === 'prueba') && (a.aplica||[]).includes(parte));
+  if (!act.length) return '(Todavía no hay reglas del equipo para esta parte.)';
+  return act.map(a => `- [${a.id} · ${a.estado === 'fija' ? 'FIJA' : 'en prueba'}] ${a.texto}`).join('\n');
+}
+function vRevisar(){
+  $main.append(h('div',{}, h('div',{class:'eyebrow',text:'BERLIAM · Contrato 4600031257'}), h('h1',{text:'Revisar documentos existentes'}),
+    h('p',{class:'sub',text:'Sube la MIPER, el procedimiento y el mapa de un kit que ya existe. La app los cruza entre sí y con el criterio del área, en este orden: primero las reglas de los prevencionistas, después la SIGO-G-012 y la guía inicial MH-0001. Entrega una lista de hallazgos con cómo corregir cada uno, la MIPER corregida en el formato oficial y un informe PDF de lo que cambió.'})), ...banner());
+  if (S.busy){ $main.append(h('div',{class:'busy',role:'status'}, h('div',{class:'spin'}), h('div',{}, h('div',{text:S.busy.t}), h('div',{id:'busyN',style:'font-weight:400;font-size:12px',text:'Pensando… puede tardar uno o dos minutos por grupo de tareas.'})), h('button',{class:'btn sm',style:'margin-left:auto',onclick:()=>{ RV.cancelar = true; ctl && ctl.abort(); },text:'Detener'}))); return; }
+  const input = (id, lbl, acc, key, ayuda) => h('div',{class:'card'}, h('div',{class:'row between'}, h('div',{style:'min-width:0'}, h('h2',{text:lbl}), h('div',{class:'sub',text: RV[key] ? '✓ ' + RV[key].name : ayuda})),
+    h('label',{class:'btn' + (RV[key] ? '' : ' pri'),for:id,style:'display:inline-flex;align-items:center;cursor:pointer'}, RV[key] ? 'Cambiar archivo' : 'Elegir archivo'),
+    h('input',{type:'file',id,accept:acc,style:'position:absolute;width:1px;height:1px;opacity:0',onchange:e=>{ RV[key] = e.target.files[0] || null; render(); }})));
+  $main.append(input('rvM','1. MIPER SIGO-F-006 (obligatoria)','.xlsm,.xlsx','miper','Archivo .xlsm o .xlsx del formato oficial.'),
+    input('rvP','2. Procedimiento (recomendado)','.docx,.pdf','proc','Archivo .docx o .pdf. Sirve para cruzar pasos y RF con la MIPER.'),
+    input('rvA','3. Mapa de procesos SIGO-F-011 (opcional)','.xlsx','mapa','Archivo .xlsx. Sirve para cruzar tareas y dotación.'),
+    h('div',{class:'row',style:'justify-content:flex-end'}, RV.hayPrueba ? h('button',{class:'btn',onclick:cargarPrueba,text:'Usar documentos de prueba'}) : null, h('button',{class:'btn pri',disabled:!RV.miper||!sample,onclick:procesarRevision,text:'Revisar documentos'})));
+  if (RV.hayPrueba == null){ RV.hayPrueba = false; fetch('prueba_m.txt',{method:'HEAD'}).then(r => { if (r.ok){ RV.hayPrueba = true; if (S.view === 'revisar') render(); } }).catch(()=>{}); }
+  const prev = S.kits.filter(x => x.revisado);
+  if (prev.length) $main.append(h('div',{class:'card'}, h('h2',{text:'Revisiones anteriores'}), ...prev.map(k => h('div',{class:'kitrow'}, h('div',{style:'min-width:0'}, h('b',{text:k.titulo||'Kit revisado'}), h('div',{class:'sub',text:(k.codigo||'') + ' · Revisión ' + (k.revision||0) + ' · ' + new Date(k.actualizado||Date.now()).toLocaleDateString('es-CL')})), h('button',{class:'btn sm',onclick:()=>abrir(k).then(()=>{ S.tab='hall'; render(); }),text:'Abrir'})))));
+}
+async function cargarPrueba(){
+  const f = async (n, nombre) => { const t = await (await fetch(n)).text(); const b = atob(t.trim()); const u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return new File([u], nombre); };
+  RV.miper = await f('prueba_m.txt','MIPER_MM-0109.xlsm'); RV.proc = await f('prueba_p.txt','VELTB-P-CRT208-MM-0109.docx'); RV.mapa = await f('prueba_a.txt','Mapa_MM-0109.xlsx'); render();
+}
+function codigoValido(c){ c = String(c||''); return CODES.find(x => x === c) || CODES.find(x => x.split('_')[0] === c.split('_')[0]) || c; }
+async function procesarRevision(){
+  S.err = null; RV.cancelar = false;
+  let M, PR = null, MAPA = null, mapaB64 = null;
+  try { M = await window.leerMiperDoc(await RV.miper.arrayBuffer()); if (!M.filas.length) throw new Error('no encontré filas evaluadas desde la fila 10'); }
+  catch (e){ S.err = 'No pude leer la MIPER: ' + (e.message||'formato no reconocido') + '. Debe ser el SIGO-F-006 en .xlsm o .xlsx.'; render(); return; }
+  try { if (RV.proc) PR = await window.leerProcDoc(await RV.proc.arrayBuffer(), RV.proc.name); } catch (e){ S.err = 'No pude leer el procedimiento (' + (e.message||'error') + '). Sigo solo con la MIPER.'; }
+  try { if (RV.mapa){ const b = await RV.mapa.arrayBuffer(); MAPA = await window.leerMapa(b); mapaB64 = aB64(new Uint8Array(b)); } } catch (e){ S.err = 'No pude leer el mapa. Sigo sin él.'; }
+  // Kit con la MIPER tal como viene: sobre este se aplican las correcciones aceptadas.
+  const tareas = []; for (const f of M.filas) if (!tareas.find(t => t.n === f.tn)) tareas.push({ n: f.tn, tarea: f.tarea, rnr: 'R', cargos: String(f.cargo||'').split(/\s*[\/,]\s*/).filter(Boolean), dotacion: Number(f.dot)||1, energias: [], linea_fuego: '', evento: '', rf: [], control_principal: '', y_si_falla: '' });
+  const ENT = D.entorno.map(e => e.codigo.split('_')[0]);
+  const k = { id: 'k' + Date.now().toString(36) + uid().slice(0,4), revisado: true, titulo: String(M.actividad||'').replace(/^\s*\d+(\.\d+)*\.?\s*/,'').replace(/\s*\(VELTB[^)]*\)\s*/g,' ').trim() || (RV.miper.name.replace(/\.[^.]+$/,'').replace(/[_-]+/g,' ')),
+    codigo: (PR && PR.codigo) || ((String(M.actividad) + ' ' + RV.miper.name).match(/VELTB-P-[A-Z0-9]+-[A-Z]{2,3}-\d{3,4}/) || [])[0] || '', proceso: M.proceso || '', area: '', equipo: '', dotacion: String(Math.max(...tareas.map(t => t.dotacion)) || ''),
+    dot_mapa: { f: M.hdr.F, m: M.hdr.M, nb: M.hdr.NB }, respuestas: {}, aprobado: true, proc: null, mapaB64, mapaArchivo: RV.mapa ? RV.mapa.name : null, desdeMapa: !!mapaB64,
+    listado: { tareas, preguntas: [], faltantes: [] } };
+  const rev0 = PR && PR.revision != null ? PR.revision : null;
+  k.revision = (rev0 != null ? rev0 : 0) + 1;
+  k.historial = [[k.revision, 'Revisión de MIPER y procedimiento con la app: corrección de hallazgos', 'MIPER / Procedimiento', FECHA()]];
+  k.miper = M.filas.map(f => { const t = tareas.find(x => x.n === f.tn); const r = fila(t, codigoValido(f.cod), f.peligro, f.P, f.C, f.Pr, f.Cr, f.vep + '|' + f.niv, f.vepr + '|' + f.nivr, f.med, f.jer, ENT.includes(String(f.cod).split('_')[0])); r.filaOrig = f.fila; if (f.resp) r.resp = f.resp; return r; });
+  sincronizarRF(k); k.rfAgregados = [];
+  const H = window.revisionAutomatica(M, PR, MAPA, D).map(x => ({ ...x, estado: x.aplicado || (x.cambio && x.cambio.tipo === 'transversales') ? 'aceptado' : 'pendiente', aplicado: !!(x.aplicado || (x.cambio && x.cambio.tipo === 'transversales')) }));
+  k.revisionExt = { archivos: { miper: RV.miper.name, proc: RV.proc ? RV.proc.name : null, mapa: RV.mapa ? RV.mapa.name : null }, fecha: new Date().toISOString(), revOriginal: rev0, hallazgos: H, cambios: [], trans: M.trans, mantenerTrans: false, hoja: M.hoja };
+  // Revisión de criterio con Claude, por grupos de 4 tareas.
+  const marcadas = new Set(H.flatMap(x => x.filas || []));
+  const grupos = []; for (let i = 0; i < tareas.length; i += 4) grupos.push(tareas.slice(i, i + 4));
+  try {
+    for (let gi = 0; gi < grupos.length && !RV.cancelar; gi++){
+      const g = grupos[gi];
+      const filas = M.filas.filter(f => g.some(t => t.n === f.tn));
+      const propias = filas.filter(f => !ENT.includes(String(f.cod).split('_')[0])).map(f => ({ fila: f.fila, tarea: f.tn, codigo: f.cod, peligro: f.peligro, P: f.P, C: f.C, Pr: f.Pr, Cr: f.Cr, jerarquia: f.jer, medidas: String(f.med||'').slice(0, 700), ya_detectado: marcadas.has(f.fila) || undefined }));
+      const entorno = g.map(t => ({ tarea: t.n, entorno: filas.filter(f => f.tn === t.n && ENT.includes(String(f.cod).split('_')[0])).map(f => f.cod.split('_')[0]) }));
+      const r = await pedirRev(`${RAZONAMIENTO}
+
+Estás REVISANDO una MIPER SIGO-F-006 que ya existe (no creas una nueva). Encuentra lo que está mal o falta, explica por qué y propone el cambio concreto en la fila.
+
+CRITERIO, en este orden de prioridad:
+1) Reglas del equipo de prevencionistas de BERLIAM (mandan sobre todo lo demás; si una regla contradice la guía MH-0001, se aplica la regla):
+${reglasParaRevision('miper')}
+⟦S12⟧
+
+Códigos válidos (código | categoría | pares P,C→Pr,Cr de la guía | ejemplos):
+${catalogoTexto()}
+
+Ya se revisó automáticamente y NO debes repetirlo como hallazgo: VEP = P×C, códigos fuera de la lista, RF no declarados, peligros de entorno faltantes, bloque transversal, cruce con el mapa y el procedimiento. Las filas con "ya_detectado" tienen un hallazgo automático por RF con residual sobre MODERADO o sin CCP/CCM: para ellas entrega igual un hallazgo con el cambio concreto (medidas con los CCP/CCM que aplican y residual que corresponde), con fuente "G-012".
+
+⟦S13⟧
+
+Filas propias de cada tarea:
+${JSON.stringify(propias)}
+Peligros de entorno que ya tiene cada tarea: ${JSON.stringify(entorno)}
+
+Responde SOLO con JSON:
+{"hallazgos":[{"prioridad":"CRITICO|MAYOR|FORMA","tarea":"N","fila":34,"problema":"qué está mal, una frase","por_que":"por qué importa, una frase","como":"cómo corregirlo, una o dos frases","fuente":"regla:<id de la regla> | G-012 | MH-0001 | criterio","cambio":null}]}
+"cambio" puede ser: {"tipo":"editar","fila":34, y SOLO los campos que cambian entre "codigo","peligro","P","C","Pr","Cr","medidas","jerarquia"} · {"tipo":"agregar","tarea":"N","codigo":"…","peligro":"…","P":2,"C":4,"Pr":1,"Cr":4,"medidas":"…","jerarquia":"…"} · {"tipo":"quitar","fila":34} · null si no hay cambio en la MIPER.
+En "medidas" escribe el texto completo nuevo, ordenado por jerarquía. P, C, Pr y Cr solo 1, 2 o 4. Máximo 10 hallazgos, los más graves primero. Español de Chile, frases cortas. No inventes TAG, pesos ni mediciones: déjalos "completar en terreno".`, `Revisando la MIPER: tareas ${g[0].n} a ${g[g.length-1].n} de ${tareas.length}`);
+      for (const x of (r && r.hallazgos) || []) k.revisionExt.hallazgos.push(limpiarHallazgo(x, 'MIPER'));
+    }
+    if (PR && !RV.cancelar){
+      const resumen = tareas.map(t => ({ tarea: t.n, texto: t.tarea, rf: [...new Set(k.miper.filter(f => f.tarea_n === t.n).map(f => (String(f.codigo).match(/_RC(\d\d)/)||[])[1]).filter(Boolean).map(x => 'RF' + x))] }));
+      const r = await pedirRev(`${RAZONAMIENTO}
+
+Estás REVISANDO un procedimiento de trabajo VELTB que ya existe, contra su MIPER. Encuentra lo que está mal o falta y explica cómo corregirlo.
+
+CRITERIO, en este orden de prioridad:
+1) Reglas del equipo de prevencionistas de BERLIAM (mandan; si contradicen la guía MH-0001, se aplica la regla):
+${reglasParaRevision('proc')}
+⟦S14⟧
+
+Ya se revisó automáticamente y NO lo repitas: RF de la MIPER sin tabla en el procedimiento, RF del procedimiento que no están en la MIPER, tareas que no aparecen como paso.
+
+Tareas de la MIPER con sus RF: ${JSON.stringify(resumen)}
+
+Texto del procedimiento (puede venir cortado):
+${PR.texto.slice(0, 40000)}
+
+Responde SOLO con JSON: {"hallazgos":[{"prioridad":"CRITICO|MAYOR|FORMA","ubicacion":"sección o paso, ej. 5.4 paso 3","problema":"…","por_que":"…","como":"texto concreto a agregar o cambiar","fuente":"regla:<id> | G-012 | MH-0001 | criterio"}]}
+Máximo 12 hallazgos, los más graves primero. Español de Chile, frases cortas. No inventes TAG, teléfonos ni nombres.`, 'Revisando el procedimiento');
+      for (const x of (r && r.hallazgos) || []) k.revisionExt.hallazgos.push(limpiarHallazgo({ ...x, cambio: null }, 'Procedimiento'));
+    }
+  } catch (e){ const t = errTexto(e); if (t) S.err = t + ' Guardé los hallazgos que alcancé a revisar.'; }
+  const orden = { CRITICO: 0, MAYOR: 1, FORMA: 2 };
+  k.revisionExt.hallazgos.sort((a,b) => (orden[a.prioridad] ?? 3) - (orden[b.prioridad] ?? 3));
+  k.revisionExt.hallazgos.forEach((x, i) => x.id = 'h' + i);
+  RV.miper = RV.proc = RV.mapa = null;
+  S.cur = k; S.step = 3; S.tab = 'hall'; await guardar(); go('kit');
+}
+async function pedirRev(prompt, etiqueta){
+  if (!sample) throw { code: 'unavailable' };
+  ctl = new AbortController(); S.busy = { t: etiqueta, n: 0 }; render();
+  try { return await sample.json(prompt, { modelTier: 'default', signal: ctl.signal, onText: ({ text }) => { const el = document.getElementById('busyN'); if (el) el.textContent = 'Escribiendo… ' + text.length + ' caracteres'; } }); }
+  finally { S.busy = null; ctl = null; }
+}
+function limpiarHallazgo(x, doc){
+  const p = String(x.prioridad||'').toUpperCase().replace('Í','I');
+  const fuente = String(x.fuente||'criterio').trim(); const id = (fuente.match(/^regla:\s*(\S+)/)||[])[1];
+  const regla = id ? APR.find(a => a.id === id) : null;
+  return { prioridad: PRIO[p] ? p : 'MAYOR', doc, ubic: x.ubicacion || (x.tarea ? 'Tarea ' + x.tarea + (x.fila ? ' · fila ' + x.fila : '') : ''), tarea: x.tarea ? String(x.tarea) : '', problema: String(x.problema||''), porque: String(x.por_que||''), como: String(x.como||''),
+    fuente: regla ? 'regla:' + regla.id : /g-?012/i.test(fuente) ? 'G-012' : /mh/i.test(fuente) ? 'MH-0001' : 'criterio', reglaAutor: regla ? (regla.autor||'') : '', reglaTexto: regla ? regla.texto : '', cambio: x.cambio && typeof x.cambio === 'object' ? x.cambio : null, estado: 'pendiente' };
+}
+const FUENTE_TXT = x => x.fuente === 'MH-0001' ? 'Guía inicial MH-0001' : x.fuente === 'G-012' ? 'SIGO-G-012' : x.fuente === 'formato' ? 'Formato SIGO-F-006 / RESSO' : /^regla:/.test(x.fuente) ? 'Regla del equipo' + (x.reglaAutor ? ' · ' + x.reglaAutor : '') : 'Criterio de prevención';
+function resumenFila(f){ return f ? `${String(f.codigo).replace(/_/g,' ')} · ${f.P||'NA'}×${f.C||'NA'} → ${f.Pr||'NA'}×${f.Cr||'NA'} · ${String(f.peligro).slice(0,140)}` : ''; }
+function aplicarHallazgo(x){
+  const k = S.cur, R = k.revisionExt, c = x.cambio; const n = R.hallazgos.indexOf(x);
+  if (!c) return true;
+  const fin = tn => { let j = -1; k.miper.forEach((f, i) => { if (f.tarea_n === tn && !f.entorno) j = i; }); if (j < 0) k.miper.forEach((f, i) => { if (f.tarea_n === tn) j = i; }); return j; };
+  if (c.tipo === 'transversales'){ R.mantenerTrans = false; return true; }
+  if (c.tipo === 'entorno'){
+    let agregadas = 0;
+    for (const tn of c.tareas || []){ const t = k.listado.tareas.find(t => t.n === tn); if (!t) continue;
+      for (const e of D.entorno){ if (k.miper.some(f => f.tarea_n === tn && f.codigo.split('_')[0] === e.codigo.split('_')[0])) continue;
+        const hig = typeof e.inherente[0] !== 'number';
+        const nf = fila(t, e.codigo, e.peligro, hig?null:e.inherente[0], hig?null:e.inherente[1], hig?null:e.residual[0], hig?null:e.residual[1], hig?e.inherente[2]+'|'+e.inherente[3]:null, hig?e.residual[2]+'|'+e.residual[3]:null, e.medidas, e.jerarquia, true);
+        let j = -1; k.miper.forEach((f, i) => { if (f.tarea_n === tn) j = i; }); k.miper.splice(j + 1, 0, nf); agregadas++; } }
+    R.cambios.push({ tarea: (c.tareas||[]).length + ' tareas', que: 'Peligros de entorno agregados', antes: 'Sin esos peligros', despues: agregadas + ' filas de entorno (guía MH-0001)', h: n });
+    return true;
+  }
+  if (c.tipo === 'agregar'){
+    const t = k.listado.tareas.find(t => t.n === String(c.tarea || x.tarea)); if (!t) return false;
+    const nf = fila(t, codigoValido(c.codigo), c.peligro, c.P, c.C, c.Pr, c.Cr, null, null, c.medidas, c.jerarquia);
+    k.miper.splice(fin(t.n) + 1, 0, nf);
+    R.cambios.push({ tarea: 'Tarea ' + t.n + ': ' + t.tarea.slice(0,50), que: 'Fila agregada', antes: '—', despues: resumenFila(nf), h: n });
+    sincronizarRF(k); return true;
+  }
+  const i = k.miper.findIndex(f => f.filaOrig === Number(c.fila)); if (i < 0) return false;
+  const f = k.miper[i];
+  if (c.tipo === 'quitar'){ k.miper.splice(i, 1); R.cambios.push({ tarea: 'Tarea ' + f.tarea_n + ': ' + f.tarea.slice(0,50), que: 'Fila quitada', antes: resumenFila(f), despues: '(quitada)', h: n }); return true; }
+  const t = k.listado.tareas.find(t => t.n === f.tarea_n);
+  const v = (a, b) => a == null || a === '' ? b : a;
+  const nf = fila(t, codigoValido(v(c.codigo, f.codigo)), v(c.peligro, f.peligro), v(c.P, f.P), v(c.C, f.C), v(c.Pr, f.Pr), v(c.Cr, f.Cr), f.vep + '|' + f.niv, f.vepr + '|' + f.nivr, v(c.medidas, f.medidas), v(c.jerarquia, f.jerarquia), f.entorno);
+  nf.filaOrig = f.filaOrig; nf.resp = f.resp; k.miper[i] = nf;
+  const que = ['codigo','peligro','P','C','Pr','Cr','medidas','jerarquia'].filter(key => c[key] != null && c[key] !== '').map(key => ({codigo:'código',peligro:'peligro',P:'P',C:'C',Pr:'P residual',Cr:'C residual',medidas:'medidas',jerarquia:'jerarquía'})[key]).join(', ');
+  R.cambios.push({ tarea: 'Tarea ' + f.tarea_n + ': ' + f.tarea.slice(0,50), que: 'Fila ' + f.filaOrig + ': ' + que, antes: resumenFila(f) + (c.medidas ? '\nMedidas: ' + String(f.medidas).slice(0,300) : ''), despues: resumenFila(nf) + (c.medidas ? '\nMedidas: ' + String(nf.medidas).slice(0,300) : ''), h: n });
+  sincronizarRF(k); return true;
+}
+async function decidirHallazgo(x, acepta, motivo){
+  const k = S.cur, R = k.revisionExt;
+  if (acepta){
+    if (!aplicarHallazgo(x)){ S.err = 'No encontré la fila de ese hallazgo en la MIPER; corrígela a mano con el botón "Corregir".'; render(); return; }
+    x.estado = 'aceptado'; x.aplicado = !!x.cambio;
+  } else {
+    x.estado = 'rechazado'; x.motivo = motivo || '';
+    if (x.cambio && x.cambio.tipo === 'transversales') R.mantenerTrans = true;
+    registrarCorreccion({ tipo: 'revision', tarea: x.tarea || '', antes: { hallazgo: x.problema, propuesta: x.como, origen: FUENTE_TXT(x) }, despues: 'El prevencionista rechazó este hallazgo: no corresponde corregirlo así.', motivo: motivo || '' });
+  }
+  await guardar(); render();
+}
+function vistaHallazgos(){
+  const k = S.cur, R = k.revisionExt, H = R.hallazgos;
+  const pend = H.filter(x => x.estado === 'pendiente');
+  const cont = h('div',{});
+  cont.append(h('div',{class:'row',style:'gap:8px;flex-wrap:wrap;margin-bottom:8px'},
+    ...['CRITICO','MAYOR','FORMA'].map(p => h('span',{class:'chip ' + PRIO[p][1],text:PRIO[p][0] + ': ' + H.filter(x => x.prioridad === p).length})),
+    h('span',{class:'chip',text:'Pendientes: ' + pend.length}), h('span',{class:'chip g',text:'Cambios en la MIPER: ' + R.cambios.length}),
+    h('span',{style:'flex:1'}),
+    pend.some(x => x.cambio) ? h('button',{class:'btn sm',onclick:async()=>{ for (const x of pend.filter(x => x.cambio)) { if (aplicarHallazgo(x)){ x.estado = 'aceptado'; x.aplicado = true; } } await guardar(); render(); },text:'Aceptar todos los cambios pendientes'}) : null,
+    h('button',{class:'btn sm pri',disabled:!downloads,onclick:bajarInformeRevision,text:'Informe de cambios (PDF)'})));
+  cont.append(h('p',{class:'sub',text:'Revisados: ' + [R.archivos.miper, R.archivos.proc, R.archivos.mapa].filter(Boolean).join(' · ') + '. Acepta lo que corresponde y rechaza lo que no, con el motivo: la app aprende de cada rechazo. Lo aceptado se aplica a la MIPER (pestaña MIPER) y la MIPER oficial se descarga como revisión ' + k.revision + '. Para el procedimiento, la app puede redactarlo de nuevo desde la MIPER corregida en la pestaña Procedimiento.'}));
+  H.forEach((x, i) => {
+    const f = x.cambio && x.cambio.fila ? k.miper.find(r => r.filaOrig === Number(x.cambio.fila)) : null;
+    const prop = !x.cambio ? null : x.cambio.tipo === 'editar' ? 'Cambio propuesto en la fila ' + x.cambio.fila + ': ' + ['codigo','P','C','Pr','Cr','jerarquia','peligro','medidas'].filter(key => x.cambio[key] != null && x.cambio[key] !== '').map(key => key + ' → ' + String(x.cambio[key]).replace(/_/g,' ').slice(0, key === 'medidas' ? 400 : 160)).join(' · ')
+      : x.cambio.tipo === 'agregar' ? 'Fila nueva: ' + String(x.cambio.codigo||'').replace(/_/g,' ') + ' · ' + x.cambio.P + '×' + x.cambio.C + ' → ' + x.cambio.Pr + '×' + x.cambio.Cr + ' · ' + String(x.cambio.peligro||'').slice(0,160)
+      : x.cambio.tipo === 'quitar' ? 'Quitar la fila ' + x.cambio.fila + (f ? ': ' + resumenFila(f) : '') : x.cambio.tipo === 'entorno' ? 'Agregar los peligros de entorno que faltan en ' + (x.cambio.tareas||[]).length + ' tareas.' : x.cambio.tipo === 'transversales' ? 'La MIPER corregida sale sin el bloque transversal.' : null;
+    const mot = h('input',{class:'in',placeholder:'¿Por qué no corresponde? (la app aprende de esto)','aria-label':'Motivo del rechazo',style:'display:none;margin-top:6px'});
+    const botones = x.estado === 'pendiente' ? h('div',{class:'row',style:'justify-content:flex-end;margin-top:6px'},
+        h('button',{class:'btn sm',onclick:()=>{ if (mot.style.display === 'none'){ mot.style.display = ''; mot.focus(); return; } decidirHallazgo(x, false, mot.value.trim()); },text:'Rechazar'}),
+        h('button',{class:'btn sm pri',onclick:()=>decidirHallazgo(x, true),text: x.cambio ? 'Aceptar y aplicar' : 'Aceptar'}))
+      : h('div',{class:'row',style:'justify-content:flex-end;margin-top:6px'}, h('span',{class:'chip ' + (x.estado === 'aceptado' ? 'g' : 'n'),text: x.estado === 'aceptado' ? (x.aplicado ? 'Aceptado y aplicado' : 'Aceptado') : 'Rechazado' + (x.motivo ? ': ' + x.motivo : '')}),
+          x.estado === 'rechazado' || (x.estado === 'aceptado' && !x.aplicado) ? h('button',{class:'btn sm',onclick:async()=>{ x.estado = 'pendiente'; x.motivo = ''; if (x.cambio && x.cambio.tipo === 'transversales') R.mantenerTrans = false; await guardar(); render(); },text:'Deshacer'}) : null);
+    cont.append(h('div',{class:'card',style:'margin:8px 0'},
+      h('div',{class:'row between'}, h('div',{class:'row',style:'gap:6px'}, h('span',{class:'chip ' + PRIO[x.prioridad][1],text:PRIO[x.prioridad][0]}), h('b',{text:(i+1) + '. ' + x.doc + (x.ubic ? ' · ' + x.ubic : '')})), h('span',{class:'sub',text:FUENTE_TXT(x)})),
+      h('p',{style:'margin:6px 0 2px',text:x.problema}),
+      x.porque ? h('p',{class:'sub',style:'margin:2px 0',text:'Por qué: ' + x.porque}) : null,
+      x.como ? h('p',{style:'margin:2px 0',}, h('b',{text:'Cómo corregir: '}), x.como) : null,
+      x.reglaTexto ? h('div',{class:'note g',style:'margin-top:6px',text:'Regla del equipo: ' + x.reglaTexto}) : null,
+      prop ? h('div',{class:'note',style:'margin-top:6px;white-space:pre-wrap',text:prop}) : null,
+      mot, botones));
+  });
+  return cont;
+}
+async function bajarInformeRevision(){
+  const k = S.cur; S.err = null; S.busy = { t: 'Armando el informe PDF' }; render();
+  try { const pdf = await window.informeRevisionPdf(k, quienSoy()); S.busy = null; render(); await guardarArchivo(nombreBase() + '_Informe_revision.pdf', pdf); }
+  catch (e){ S.busy = null; S.err = 'No se pudo armar el informe PDF (' + (e.message||'error') + ').'; render(); }
+}
+
 /* ---------- datos del contrato (editables) ---------- */
 const ROLES = [['confecciona','Confeccionado por'],['cphs','Toma conocimiento Comité Paritario'],['aprueba','Aprobado por Administrador de Contrato'],['revisa','Revisado por Jefe Depto. Prevención de Riesgos']];
 function contratoBase(){
@@ -885,7 +1099,7 @@ Responde SOLO con JSON: {"regla":"…","aplica":["miper"]}`, { modelTier: 'defau
     const regla = String((r && r.regla) || '').trim();
     if (!regla) return;
     const aplica = (Array.isArray(r.aplica) ? r.aplica : ['miper']).filter(x => ['listado','miper','proc'].includes(x));
-    const aprId = await guardarApr({ texto: regla, aplica: aplica.length ? aplica : ['miper'], autor: quienSoy(), estado: 'prueba', origen: (k.codigo || k.titulo) + ' · corrección en ' + ({miper:'la MIPER', listado:'el listado', pregunta:'las preguntas', respuesta:'las respuestas'}[c.tipo] || c.tipo), creado: new Date().toISOString() });
+    const aprId = await guardarApr({ texto: regla, aplica: aplica.length ? aplica : ['miper'], autor: quienSoy(), estado: 'prueba', origen: (k.codigo || k.titulo) + ' · corrección en ' + ({miper:'la MIPER', listado:'el listado', pregunta:'las preguntas', respuesta:'las respuestas', revision:'la revisión de documentos'}[c.tipo] || c.tipo), creado: new Date().toISOString() });
     await db.doc('correcciones/' + id).set({ ...doc, aprId, regla });
   } catch(e){}
 }
@@ -1080,7 +1294,7 @@ async function bajarMiperOficial(){
     firmas: [[F.confecciona.nombre, F.confecciona.cargo || 'Supervisor'], [F.revisa.nombre, F.revisa.cargo || 'Jefe Depto. Prevención de Riesgos'], [F.aprueba.nombre, F.aprueba.cargo || 'Administrador de Contrato']] };
   S.busy = { t: 'Armando la MIPER oficial' }; render();
   try {
-    const xlsm = await window.armarMiperOficial(k, meta, []);
+    const xlsm = await window.armarMiperOficial(k, meta, (k.revisionExt && k.revisionExt.mantenerTrans && k.revisionExt.trans) || []);
     const nombre = nombreBase() + '_MIPER_SIGO-F-006.xlsm';
     if (COLECTOR){ S.busy = null; COLECTOR.push([nombre, xlsm]); return; }
     const paquete = zip([[nombre, new Uint8Array(await xlsm.arrayBuffer())]], 'application/zip');

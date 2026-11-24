@@ -139,7 +139,7 @@ function pantallaOlvide(correo){
     el('p', { style: 'margin:14px 0 0;text-align:center' }, el('a', { href: '#', text: 'Volver a ingresar', onclick: (ev) => { ev.preventDefault(); pantallaLogin(false); } })))));
   (em.value ? (bt.focus(), null) : em.focus());
 }
-function entrar(){ document.getElementById('kxLogin')?.remove(); window.KITSSO_YO = { email: yo.email, admin: !!yo.admin }; barra(); listo(); }
+function entrar(){ document.getElementById('kxLogin')?.remove(); document.getElementById('kxHide')?.remove(); window.KITSSO_YO = { email: yo.email, admin: !!yo.admin }; barra(); listo(); }
 function barra(){
   document.getElementById('kxBar')?.remove();
   const b = el('div', { id: 'kxBar' });

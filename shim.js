@@ -78,6 +78,7 @@ css.textContent = `
 #kxLogin h1{font-size:22px;margin:0 0 4px} #kxLogin p{margin:0 0 16px;color:#5f5d57;font-size:14px}
 #kxLogin label{display:block;font-size:13px;font-weight:600;margin:12px 0 4px}
 #kxLogin input{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #cfcbc1;border-radius:8px;font:inherit}
+#kxLogin,#kxAdm{color-scheme:light} #kxLogin input,#kxAdm input{background:#fff;color:#1d1d1b} #kxLogin input[readonly]{background:#f3f2ee;color:#5f5d57}
 #kxLogin button{width:100%;margin-top:18px;padding:11px;border:0;border-radius:8px;background:#c2410c;color:#fff;font:600 15px Inter,system-ui,sans-serif;cursor:pointer}
 #kxLogin button:disabled{opacity:.6} #kxLogin .er{color:#b91c1c;font-size:13px;margin-top:10px;min-height:1em}
 #kxLogin a{color:#c2410c;font-size:13px;cursor:pointer;display:inline-block;margin-top:14px}

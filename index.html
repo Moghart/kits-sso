@@ -171,7 +171,7 @@ const rfAmbito = (r, f) => f === 'todos' ? true : f === 'declarados' ? !!r.decla
   if (db) db.collection('config').onSnapshot(snap => { const d = snap.docs.find(x => x.id === 'contrato'); S.contrato = d ? d.data() : null; if (S.view === 'contrato') render(); }, () => {});
   if (db) db.collection('correcciones').onSnapshot(snap => { CORR = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => (b.fecha||'').localeCompare(a.fecha||'')); if (S.view === 'aprendizaje') render(); }, () => {});
   if (db) db.collection('aprendizajes').onSnapshot(snap => { APR = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => (b.creado||'').localeCompare(a.creado||'')); if (S.view === 'aprendizaje') render(); }, () => {});
-  if (db) db.collection('kits').onSnapshot(snap => { S.kits = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => (b.actualizado||'').localeCompare(a.actualizado||'')); if (S.view === 'panel') render(); }, () => {});
+  if (db) db.collection('kits').onSnapshot(snap => { S.kits = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => (b.actualizado||'').localeCompare(a.actualizado||'')); if (S.view === 'panel') render(); migrarRC(); }, () => {});
   render();
 })();
 
@@ -285,12 +285,27 @@ async function borrarKit(k){
     S.kits = S.kits.filter(x => x.id !== k.id); S.borrarKit = null; S.aviso = 'Kit borrado.'; render();
   } catch(e){ S.borrarKit = null; S.err = 'No se pudo borrar el kit (' + (e.code||'error') + ').'; render(); }
 }
+/* Kits creados con códigos RC (obsoletos): se pasan a RF una sola vez, en la base de datos. */
+let migrandoRC = false;
+async function migrarRC(){
+  if (migrandoRC || !db) return; migrandoRC = true;
+  const re = /(?<![A-Za-z])RC(\d\d)/g, tiene = t => /(?<![A-Za-z])RC\d\d/.test(t);
+  try {
+    for (const k of [...S.kits]){
+      for (const [parte, n] of Object.entries(k._partes || {})) for (let i = 0; i < n; i++){
+        const ref = db.doc('kitpartes/' + k.id + '__' + parte + '__' + i), d = await ref.get();
+        if (d.exists && tiene(d.data().s || '')) await ref.set({ ...d.data(), s: d.data().s.replace(re, 'RF$1') });
+      }
+      const txt = JSON.stringify(k);
+      if (tiene(txt)) await db.doc('kits/' + k.id).set(JSON.parse(txt.replace(re, 'RF$1')));
+    }
+  } catch (e) { migrandoRC = false; }
+}
 async function cargarPartes(k){
   if (!db || !k._partes) return k;
   for (const [parte, n] of Object.entries(k._partes)){
     let txt = ''; for (let i = 0; i < n; i++){ const d = await db.doc('kitpartes/' + k.id + '__' + parte + '__' + i).get(); txt += (d.exists && d.data().s) || ''; }
-    try { k[parte] = JSON.parse(txt); } catch { k[parte] = null; }
-    if (parte === 'miper' && Array.isArray(k.miper)) for (const f of k.miper) f.codigo = String(f.codigo||'').replace(/_RC(\d\d)/,'_RF$1'); // códigos antiguos RC → RF
+    try { k[parte] = JSON.parse(txt.replace(/(?<![A-Za-z])RC(\d\d)/g, 'RF$1')); } catch { k[parte] = null; }
   }
   delete k._partes; delete k._mcodigos; return k;
 }

@@ -113,7 +113,7 @@ function pantallaLogin(primerAdmin, aviso){
     el('p', { text: primerAdmin ? 'Primera vez: crea la cuenta del administrador. Después, el administrador agrega a los demás usuarios.' : 'BERLIAM · Codelco DRT. Entra con el correo y la contraseña que te dio el administrador.' }), f)));
   em.focus();
 }
-function entrar(){ document.getElementById('kxLogin')?.remove(); barra(); listo(); }
+function entrar(){ document.getElementById('kxLogin')?.remove(); window.KITSSO_YO = { email: yo.email, admin: !!yo.admin }; barra(); listo(); }
 function barra(){
   document.getElementById('kxBar')?.remove();
   const b = el('div', { id: 'kxBar' });

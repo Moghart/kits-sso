@@ -137,6 +137,7 @@ const D = window.KITDATA;
 const $main = document.getElementById('main');
 const S = { view: 'panel', empresa: 'berliam', contrato: null, kits: [], cur: null, step: 1, tab: 'miper', busy: null, err: null };
 let db = null, sample = null, downloads = null, ctl = null;
+let APR = [];
 
 /* ---------- utilidades de DOM (todo texto entra como textContent) ---------- */
 function h(tag, attrs, ...kids){
@@ -165,6 +166,7 @@ const rfAmbito = (r, f) => f === 'todos' ? true : f === 'declarados' ? !!r.decla
   [db, sample, downloads] = await Promise.all(['db','sample','downloads'].map(n => window.claude.use(n).catch(() => null)));
   if (db) db.collection('catalogo_rf').onSnapshot(snap => { for (const d of snap.docs){ const v = d.data(); if (v && v.codigo && Array.isArray(v.preventivos)) D.rfcat[v.codigo] = { ...v, titulo: v.nombre, editado: v.editado || 'db' }; } rfNombres(); if (S.view === 'biblioteca') render(); }, () => {});
   if (db) db.collection('config').onSnapshot(snap => { const d = snap.docs.find(x => x.id === 'contrato'); S.contrato = d ? d.data() : null; if (S.view === 'contrato') render(); }, () => {});
+  if (db) db.collection('aprendizajes').onSnapshot(snap => { APR = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => (b.creado||'').localeCompare(a.creado||'')); if (S.view === 'aprendizaje') render(); }, () => {});
   if (db) db.collection('kits').onSnapshot(snap => { S.kits = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => (b.actualizado||'').localeCompare(a.actualizado||'')); if (S.view === 'panel') render(); }, () => {});
   render();
 })();
@@ -193,7 +195,7 @@ function renderNav(){
   document.getElementById('empLabel').textContent = S.empresa ? 'BERLIAM · Codelco DRT' : 'Elige una empresa';
   const foot = document.getElementById('navFoot'); foot.textContent = '';
   if (!S.empresa) return;
-  const items = [['panel','Panel','Kits del contrato'],['nueva','Actividad nueva','Crear kit desde cero'],['biblioteca','Biblioteca','Riesgos de fatalidad y controles'],['contrato','Datos del contrato','Teléfonos y firmantes']];
+  const items = [['panel','Panel','Kits del contrato'],['nueva','Actividad nueva','Crear kit desde cero'],['biblioteca','Biblioteca','Riesgos de fatalidad y controles'],['contrato','Datos del contrato','Teléfonos y firmantes'],['aprendizaje','Aprendizaje','Reglas que la app aplica']];
   for (const [v,l,s] of items) nav.append(h('button', { 'aria-current': (S.view === v || (v==='nueva' && S.view==='kit')) ? 'page' : null, onclick: () => { if (v==='nueva') nuevaActividad(); else go(v); } }, h('span',{text:l}), h('small',{text:s})));
 }
 function render(){
@@ -204,6 +206,7 @@ function render(){
   if (v === 'kit') return vKit();
   if (v === 'biblioteca') return vBiblio();
   if (v === 'contrato') return vContrato();
+  if (v === 'aprendizaje') return vAprendizaje();
   if (v === 'mapa') return vMapa();
 }
 function banner(){
@@ -268,12 +271,19 @@ function nuevaActividad(){
 /* ---------- llamadas a Claude ---------- */
 const RAZONAMIENTO = `⟦S1⟧`;
 
+function tierDe(etiqueta, tier){
+  const tp = S.cur && S.cur.tierPrueba;
+  if (tp === 'quick') return 'quick';
+  if (tp === 'proc') return /^Redactando el procedimiento/.test(etiqueta) ? 'quick' : (tier || 'default');
+  if (tp === 'mixto') return /^Evaluando peligros/.test(etiqueta) ? (tier || 'default') : 'quick';
+  return tier || 'default';
+}
 async function pedir(prompt, etiqueta, tier){
   if (!sample) throw { code: 'unavailable' };
   ctl = new AbortController();
   S.busy = { t: etiqueta, n: 0 }; render();
   try {
-    return await sample.json(prompt, { modelTier: tier || 'default', signal: ctl.signal, onText: ({ text }) => { if (S.busy){ S.busy.n = text.length; const el = document.getElementById('busyN'); if (el) el.textContent = 'Escribiendo… ' + text.length + ' caracteres'; } } });
+    return await sample.json(prompt, { modelTier: tierDe(etiqueta, tier), signal: ctl.signal, onText: ({ text }) => { if (S.busy){ S.busy.n = text.length; const el = document.getElementById('busyN'); if (el) el.textContent = 'Escribiendo… ' + text.length + ' caracteres'; } } });
   } finally { S.busy = null; ctl = null; }
 }
 function errTexto(e){
@@ -292,7 +302,7 @@ function errTexto(e){
 async function analizar(){
   const k = S.cur; S.err = null;
   const resp = Object.entries(k.respuestas||{}).filter(([,v])=>v).map(([q,v])=>`- ${q}: ${v}`).join('\n');
-  const prompt = `${RAZONAMIENTO}
+  const prompt = `${RAZONAMIENTO}${aprendido('listado')}
 
 Actividad a analizar (descrita por el usuario):
 Título: ${k.titulo}
@@ -329,7 +339,7 @@ async function actualizarConRespuestas(){
   if (!L.tareas.some(t => (t.energias||[]).length)) return analizar();
   if (!nuevas.length){ S.err = 'No hay respuestas nuevas para aplicar.'; render(); return; }
   const hechas = Object.keys(k.respuestas||{}).length; const cupo = Math.max(0, 8 - hechas);
-  const prompt = `${RAZONAMIENTO}
+  const prompt = `${RAZONAMIENTO}${aprendido('listado')}
 
 Actividad: ${k.titulo}. Área: ${k.area}.
 Listado YA analizado (no lo repitas entero):
@@ -373,7 +383,7 @@ async function generarMiper(){
   try {
     for (let li = 0; li < lotes.length; li++){
       const lote = lotes[li];
-      const prompt = `${RAZONAMIENTO}
+      const prompt = `${RAZONAMIENTO}${aprendido('miper')}
 
 Vas a llenar la MIPER SIGO-F-006 v7 para estas tareas de la actividad "${k.titulo}" (${k.equipo}):
 ${JSON.stringify(lote.map(t=>({n:t.n,tarea:t.tarea,energias:t.energias,linea_fuego:t.linea_fuego,evento:t.evento,rf:t.rf,control_principal:t.control_principal})))}
@@ -388,7 +398,7 @@ Responde SOLO con JSON: {"filas":[{"tarea_n":"1","codigo":"(B1)_RC09_Atrapamient
       for (const f of (r && r.filas) || []) filas.push(f);
     }
   } catch (e) { S.err = errTexto(e); render(); return; }
-  k.miper = construirMiper(filas); S.step = 3; S.tab = 'miper';
+  k.miper = construirMiper(filas); sincronizarRF(k); S.step = 3; S.tab = 'miper';
   await guardar(); render();
 }
 function construirMiper(filas){
@@ -411,6 +421,18 @@ function fila(t, codigo, peligro, P, C, Pr, Cr, vi, vr, medidas, jer, entorno){
   if (Pr && Cr){ r.Pr=Pr; r.Cr=Cr; r.vepr=Pr*Cr; r.nivr=NIVEL(Pr*Cr); } else { const [a,b]=String(vr||'|').split('|'); r.vepr=a||''; r.nivr=b||''; }
   return r;
 }
+function sincronizarRF(k){
+  // Coherencia: si la MIPER evalúa un RCxx en una tarea, el listado (y por tanto el procedimiento) debe llevar su RFxx.
+  k.rfAgregados = [];
+  for (const t of (k.listado && k.listado.tareas) || []){
+    t.rf = t.rf || [];
+    for (const f of k.miper.filter(f => f.tarea_n === t.n && !f.entorno)){
+      const m = String(f.codigo || '').match(/_RC(\d\d)(_|$)/); if (!m) continue;
+      const rf = 'RF' + m[1]; if (!D.rfcat[rf] || t.rf.includes(rf)) continue;
+      t.rf.push(rf); t.rf.sort(); k.rfAgregados.push(`Tarea ${t.n}: ${rf}`);
+    }
+  }
+}
 function alertas(){
   const k = S.cur, A = [];
   if (!k.miper) return A;
@@ -418,8 +440,9 @@ function alertas(){
     const fs = k.miper.filter(f=>f.tarea_n===t.n && !f.entorno);
     if (!fs.length) A.push(['b',`Tarea ${t.n}: no tiene peligros propios evaluados.`]);
     for (const rf of t.rf){ const rr = D.rfcat[rf]; if (!rr) A.push(['b',`Tarea ${t.n}: ${rf} no existe en la SIGO-G-012 vigente.`]); else if (!rr.declarado) A.push(['b',`Tarea ${t.n}: ${rf} ${rr.nombre} no está en la declaración de aplicabilidad de BERLIAM. El RESSO v11 descuenta 5% por exponerse a un RF no declarado: decláralo o cambia el método.`]); }
-    for (const rf of t.rf){ const rc = 'RC' + rf.slice(2); if (!CODES.some(c=>c.includes(rc))) continue; if (!fs.some(f=>f.codigo.includes('_'+rc+'_') || f.codigo.includes('_'+rc))) A.push(['w',`Tarea ${t.n}: el listado marca ${rf} pero la MIPER no tiene un peligro ${rc}.`]); }
+    for (const rf of t.rf){ const rc = 'RC' + rf.slice(2); if (!CODES.some(c=>c.includes(rc))) continue; if (!k.miper.some(f=>f.tarea_n===t.n && (f.codigo.includes('_'+rc+'_') || f.codigo.includes('_'+rc)))) A.push(['w',`Tarea ${t.n}: el listado marca ${rf} pero la MIPER no tiene un peligro ${rc}.`]); }
   }
+  for (const x of k.rfAgregados || []) A.push(['w',`${x} se agregó al listado y al procedimiento porque la MIPER evalúa ese riesgo crítico. Revisa que corresponda.`]);
   for (const f of k.miper){
     if (!CODES.includes(f.codigo)) A.push(['b',`Tarea ${f.tarea_n}: el código "${f.codigo}" no está en la lista del formato.`]);
     if (f.P && f.Pr && f.vepr > f.vep) A.push(['b',`Tarea ${f.tarea_n}: el residual de "${f.peligro.slice(0,50)}" es mayor que el inherente.`]);
@@ -431,7 +454,7 @@ function alertas(){
 async function generarProc(){
   const k = S.cur; S.err = null;
   const rfs = [...new Set(k.listado.tareas.flatMap(t=>t.rf))].sort();
-  const prompt = `${RAZONAMIENTO}
+  const prompt = `${RAZONAMIENTO}${aprendido('proc')}
 
 Vas a completar el procedimiento de trabajo VELTB de BERLIAM para "${k.titulo}" (${k.equipo}, ${k.area}). Los pasos ya están definidos (no los cambies):
 ${k.listado.tareas.map(t=>t.n+'. '+t.tarea).join('\n')}
@@ -532,7 +555,7 @@ function paso3(){
   const k = S.cur;
   if (!k.miper){ $main.append(h('div',{class:'card'}, h('p',{text:'La MIPER todavía no se genera.'}), h('button',{class:'btn pri',disabled:!sample||!!S.busy,onclick:generarMiper,text:'Generar MIPER'}))); return; }
   const A = alertas();
-  const tabs = h('div',{class:'tabs',role:'tablist'}, ...[['miper','MIPER SIGO-F-006'],['proc','Procedimiento'],['mapa','Mapa de procesos'],['rev','Revisión ('+A.length+')']].map(([v,l])=>h('button',{role:'tab','aria-selected':S.tab===v?'true':'false',onclick:()=>{S.tab=v;render();},text:l})));
+  const tabs = h('div',{class:'tabs',role:'tablist'}, ...[['miper','MIPER SIGO-F-006'],['proc','Procedimiento'],['mapa','Mapa de procesos'],['traz','Trazabilidad'],['rev','Revisión ('+A.length+')']].map(([v,l])=>h('button',{role:'tab','aria-selected':S.tab===v?'true':'false',onclick:()=>{S.tab=v;render();},text:l})));
   const acciones = h('div',{class:'row'},
     h('button',{class:'btn sm',onclick:()=>{S.step=2;render();},text:'Volver al listado'}),
     h('button',{class:'btn sm pri',disabled:!downloads||!!S.busy,onclick:bajarKitCompleto,text:'Descargar kit completo (.zip)'}),
@@ -542,8 +565,8 @@ function paso3(){
     h('button',{class:'btn sm',disabled:!downloads,onclick:bajarTraz,text:'Trazabilidad (.xlsx)'}),
     h('button',{class:'btn sm',disabled:!downloads||!k.proc,onclick:bajarProc,text:'Descargar procedimiento (.docx)'}));
   $main.append(h('div',{class:'card'}, h('div',{class:'row between'}, tabs, acciones),
-    S.tab==='miper'? tablaMiper() : S.tab==='proc'? vistaProc() : S.tab==='mapa'? tablaMapa() : vistaRev(A)));
-  $main.append(cajaTerreno(), cajaRevision(), cajaFirmas());
+    S.tab==='miper'? tablaMiper() : S.tab==='proc'? vistaProc() : S.tab==='mapa'? tablaMapa() : S.tab==='traz'? vistaTraz() : vistaRev(A)));
+  $main.append(cajaTerreno(), cajaRevision(), h('div',{class:'card'}, h('div',{class:'eyebrow',text:'Aprendizaje'}), h('h2',{text:'¿Qué corregiste en este kit? Enséñaselo a la app'}), h('p',{class:'sub',text:'Escríbelo como regla general para que sirva en los próximos kits. Queda en prueba hasta que otro prevencionista la confirme en Aprendizaje.'}), formApr(S.cur)), cajaFirmas());
   $main.append(h('p',{class:'sub',text:'Borrador para revisión de un prevencionista.'}));
 }
 function tablaMiper(){
@@ -568,6 +591,51 @@ function tablaMapa(){
   const tb = h('tbody'); for (const x of k.listado.tareas) tb.append(h('tr',{}, h('td',{class:'c',text:x.n}), h('td',{text:x.tarea}), h('td',{class:'c',text:x.rnr}), h('td',{text:(x.cargos||[]).join(', ')}), h('td',{class:'c',text:x.dotacion}), h('td',{text:x.rf.join(', ')})));
   t.append(tb); return h('div',{}, h('p',{class:'sub',text:'Tareas del mapa SIGO-F-011, con el mismo texto que la MIPER y el procedimiento.'}), h('div',{class:'tw'}, t));
 }
+function vistaTraz(){
+  // Cruce mapa → listado → MIPER → procedimiento, tarea por tarea y RF por RF.
+  const k = S.cur; const p = k.proc;
+  const enProc = rf => !!(p && (p.rf_tablas||[]).some(x => x.codigo === rf || x.rf === rf)) || !!(p && (p.rf||[]).includes(rf));
+  const rcDe = f => { const m = String(f.codigo||'').match(/_RC(\d\d)(_|$)/); return m ? 'RF' + m[1] : null; };
+  let malos = 0;
+  const chip = (ok, txt) => h('span',{class:'chip ' + (ok ? 'g' : 'b'),style:'margin:1px',text:txt});
+  const t = h('table',{class:'t'}, h('thead',{}, h('tr',{}, ...['N°','Tarea (mapa)','Paso del procedimiento','RF del listado','Riesgos críticos en la MIPER','RF con tabla en el procedimiento','Peligros propios','Nivel inherente / residual más alto','Estado'].map(x=>h('th',{text:x})))));
+  const tb = h('tbody');
+  for (const x of k.listado.tareas){
+    const fs = (k.miper||[]).filter(f => String(f.tarea_n) === String(x.n) && !f.entorno);
+    const rfM = [...new Set(fs.map(rcDe).filter(r => r && D.rfcat[r]))].sort();
+    const rfL = (x.rf||[]).slice().sort();
+    // Los peligros de entorno del área (sílice, ruido, etc.) también cubren su RF en la MIPER.
+    const rfEnt = new Set((k.miper||[]).filter(f => String(f.tarea_n) === String(x.n) && f.entorno).map(rcDe).filter(Boolean));
+    const faltaMiper = rfL.filter(r => !rfM.includes(r) && !rfEnt.has(r) && CODES.some(c => c.includes('RC' + r.slice(2))));
+    const faltaList = rfM.filter(r => !rfL.includes(r));
+    const faltaProc = p ? [...new Set([...rfL, ...rfM])].filter(r => !enProc(r)) : [];
+    const problemas = [ ...faltaMiper.map(r => r + ' sin peligro en la MIPER'), ...faltaList.map(r => r + ' está en la MIPER pero no en el listado'), ...faltaProc.map(r => r + ' sin tabla en el procedimiento'), ...(fs.length ? [] : ['sin peligros propios']), ...(p ? [] : ['procedimiento sin generar']) ];
+    if (problemas.length) malos++;
+    tb.append(h('tr',{},
+      h('td',{class:'c',text:x.n}), h('td',{text:x.tarea}),
+      h('td',{class:'c',text: p ? '5.4 paso ' + x.n : '—'}),
+      h('td',{}, ...(rfL.length ? rfL.map(r => chip(!faltaMiper.includes(r), r)) : [h('span',{class:'sub',text:'—'})])),
+      h('td',{}, ...(rfM.length ? rfM.map(r => chip(rfL.includes(r), r)) : [h('span',{class:'sub',text:'—'})])),
+      h('td',{}, ...(p ? [...new Set([...rfL, ...rfM])].sort().map(r => chip(enProc(r), r)) : [h('span',{class:'sub',text:'Sin generar'})])),
+      h('td',{class:'c',text:String(fs.length)}),
+      h('td',{class:'c',text: maxNiv(fs.map(f => f.niv)) + ' / ' + maxNiv(fs.map(f => f.nivr))}),
+      h('td',{}, problemas.length ? h('span',{class:'chip b',text:'Revisar'}) : h('span',{class:'chip g',text:'Coherente'}), ...problemas.map(q => h('div',{class:'sub',style:'font-size:12px',text:q})))));
+  }
+  t.append(tb);
+  const rfs = [...new Set([...k.listado.tareas.flatMap(x => x.rf||[]), ...(k.miper||[]).filter(f=>!f.entorno).map(rcDe).filter(r => r && D.rfcat[r])])].sort();
+  const t2 = h('table',{class:'t'}, h('thead',{}, h('tr',{}, ...['RF','Nombre','Declarado por BERLIAM','Tareas en el listado','Tareas en la MIPER','Tabla en el procedimiento'].map(x=>h('th',{text:x})))));
+  const tb2 = h('tbody');
+  for (const rf of rfs){ const r = D.rfcat[rf] || {};
+    const tl = k.listado.tareas.filter(x => (x.rf||[]).includes(rf)).map(x => x.n).join(', ');
+    const tm = [...new Set((k.miper||[]).filter(f => !f.entorno && rcDe(f) === rf).map(f => f.tarea_n))].join(', ');
+    tb2.append(h('tr',{}, h('td',{class:'c',text:rf}), h('td',{text:r.nombre||''}), h('td',{class:'c'}, chip(!!r.declarado, r.declarado ? 'Sí' : 'NO')), h('td',{text:tl||'—'}), h('td',{text:tm||'—'}), h('td',{class:'c'}, p ? chip(enProc(rf), enProc(rf) ? 'Sí' : 'No') : h('span',{class:'sub',text:'Sin generar'}))));
+  }
+  t2.append(tb2);
+  return h('div',{},
+    h('div',{class:'note ' + (malos ? 'w' : 'g'), text: malos ? `${malos} de ${k.listado.tareas.length} tareas tienen algo que revisar entre listado, MIPER y procedimiento.` : 'Todas las tareas son coherentes: cada RF del listado tiene su peligro en la MIPER y su tabla en el procedimiento.'}),
+    h('h2',{style:'margin-top:14px',text:'Tarea por tarea'}), h('div',{class:'tw'}, t),
+    h('h2',{style:'margin-top:18px',text:'Riesgos de fatalidad del kit'}), h('div',{class:'tw'}, t2));
+}
 function vistaRev(A){
   if (!A.length) return h('div',{class:'note g',text:'Sin observaciones: cada tarea tiene peligros propios, los RF del listado están en la MIPER y los códigos son de la lista del formato.'});
   return h('div',{class:'note '+(A.some(a=>a[0]==='b')?'b':'w')}, h('b',{text:'Revisa antes de descargar'}), h('ul',{}, ...A.map(a=>h('li',{text:a[1]}))));
@@ -578,13 +646,24 @@ function nuevaRevision(motivo, item){
   if (k.proc){ k.proc.revision = String(k.revision); k.proc.historial = k.historial.map(r=>r.map(String)); k.proc.fecha_emision = FECHA(); }
   guardar(); render();
 }
+async function duplicarPrueba(modo){
+  const k = JSON.parse(JSON.stringify(S.cur));
+  k.id = 'k' + Date.now().toString(36) + uid().slice(0,4);
+  k.codigo = (k.codigo||'') + ({mixto:'-MIXTO', proc:'-PROCRAPIDO'}[modo] || '-PRUEBA'); k.tierPrueba = modo;
+  if (modo === 'proc'){ if (!k.miper){ alert('Este kit aún no tiene MIPER.'); return; } k.proc = null; delete k._partes; S.cur = k; S.step = 3; S.tab = 'proc'; await guardar(); go('kit'); return; }
+  k.miper = null; k.proc = null; delete k._partes; delete k._mcodigos;
+  if (modo === 'mixto' && k.listado){ k.listado.tareas = k.listado.tareas.map(t => ({ n: t.n, tarea: t.tarea, rnr: t.rnr, cargos: t.cargos, dotacion: t.dotacion, energias: [], linea_fuego: '', evento: '', rf: [], control_principal: '', y_si_falla: '' })); k.aprobado = false; }
+  else k.aprobado = true;
+  S.cur = k; S.step = 2; await guardar(); go('kit');
+}
 function cajaRevision(){
   const k = S.cur; const mot = h('input',{class:'in',id:'revMot',placeholder:'Qué cambia (ej.: se agrega bloqueo mecánico del eje)'}); const it = h('input',{class:'in',id:'revIt',placeholder:'Ítem (ej.: 5.4)'});
   return h('div',{class:'card'}, h('div',{class:'row between'}, h('div',{}, h('div',{class:'eyebrow',text:'Versión del documento'}), h('h2',{text:(k.codigo||'Sin código')+' · Revisión '+(Number(k.revision)||0)})),
       h('span',{class:'sub',text:(k.historial||[]).length+' registro(s) en el historial'})),
     h('p',{class:'sub',text:'El código y la revisión se ponen solos y salen en la portada, el encabezado, el historial del procedimiento y la MIPER. Crea una revisión cuando el kit ya se emitió y cambias algo (aprendizaje de una ART, incidente, auditoría o cambio de método).'}),
     h('div',{class:'grid2'}, h('label',{class:'f',for:'revMot'},'Motivo del cambio',mot), h('label',{class:'f',for:'revIt'},'Ítem modificado',it)),
-    h('div',{class:'row',style:'justify-content:flex-end'}, h('button',{class:'btn',onclick:()=>{ if(!mot.value.trim()){S.err='Escribe el motivo de la nueva revisión.';render();return;} nuevaRevision(mot.value.trim(), it.value.trim()); },text:'Crear revisión '+((Number(k.revision)||0)+1)})));
+    h('div',{class:'row',style:'justify-content:flex-end'}, h('button',{class:'btn',onclick:()=>{ if(!mot.value.trim()){S.err='Escribe el motivo de la nueva revisión.';render();return;} nuevaRevision(mot.value.trim(), it.value.trim()); },text:'Crear revisión '+((Number(k.revision)||0)+1)})),
+    k.tierPrueba ? h('p',{class:'sub',text: k.tierPrueba === 'mixto' ? 'Kit de prueba mixto: MIPER con el modelo completo; listado, preguntas y procedimiento con el modelo rápido.' : k.tierPrueba === 'proc' ? 'Kit de prueba: listado y MIPER copiados del kit original (modelo completo); solo el procedimiento con el modelo rápido.' : 'Kit de prueba: todo el análisis usa el modelo rápido de Claude.'}) : null);
 }
 function vistaProc(){
   const k = S.cur, p = k.proc;
@@ -699,6 +778,72 @@ function cajaFirmas(){
 }
 
 /* ---------- biblioteca ---------- */
+/* ---------- aprendizaje ---------- */
+const APR_PARTES = [['listado','Listado y preguntas'],['miper','MIPER'],['proc','Procedimiento']];
+function aprendido(parte){
+  const act = APR.filter(a => (a.estado === 'fija' || a.estado === 'prueba') && (a.aplica||[]).includes(parte));
+  if (!act.length) return '';
+  const fijas = act.filter(a => a.estado === 'fija'), prueba = act.filter(a => a.estado === 'prueba');
+  let t = '\n\nAPRENDIZAJE DEL PREVENCIONISTA DE BERLIAM (correcciones hechas a kits anteriores; tienen prioridad sobre tu criterio general, salvo que contradigan la SIGO-G-012 o la guía MH-0001):';
+  if (fijas.length) t += '\nReglas fijas (obligatorias):\n' + fijas.map(a => '- ' + a.texto).join('\n');
+  if (prueba.length) t += '\nReglas en prueba (aplícalas igual):\n' + prueba.map(a => '- ' + a.texto).join('\n');
+  return t;
+}
+async function guardarApr(a){ if (!db) return; const id = a.id || ('a' + Date.now().toString(36) + uid().slice(0,4)); const o = { ...a }; delete o.id; await db.doc('aprendizajes/' + id).set(o); }
+function formApr(kit){
+  const txt = h('textarea',{class:'in',rows:3,placeholder:'Ej.: En la medición con ohmímetro sobre bornes, el contacto eléctrico (RC01) se evalúa P4 × C4 aunque haya bloqueo, porque se trabaja con las puertas abiertas.','aria-label':'Qué debe aprender la app'});
+  const sel = {}; const chk = APR_PARTES.map(([v,l]) => { const c = h('input',{type:'checkbox'}); c.checked = v === 'miper'; sel[v] = c; return h('label',{class:'row',style:'gap:6px;font-size:13px'}, c, l); });
+  const ok = h('span',{class:'sub',role:'status'});
+  const autor = h('input',{class:'in',placeholder:'Quién enseña (nombre del prevencionista)','aria-label':'Quién enseña',style:'max-width:320px'}); autor.value = quienSoy(); if (SESION()){ autor.disabled = true; autor.style.display = 'none'; }
+  return h('div',{}, txt, h('div',{class:'row',style:'margin-top:8px'}, autor, h('span',{class:'sub',text:'Aplica a:'}), ...chk),
+    h('div',{class:'row',style:'justify-content:flex-end;margin-top:8px'}, ok, h('button',{class:'btn pri sm',onclick:async()=>{
+      const texto = txt.value.trim(); const aplica = APR_PARTES.map(([v])=>v).filter(v => sel[v].checked);
+      if (!texto || !aplica.length){ ok.textContent = 'Escribe la regla y marca dónde aplica.'; return; }
+      const quien = SESION() || autor.value.trim(); if (!SESION()) try { localStorage.setItem('aprAutor', quien); } catch(e){}
+      if (!quien){ ok.textContent = 'Escribe tu nombre.'; return; }
+      await guardarApr({ texto, aplica, autor: quien, estado: 'prueba', origen: kit ? (kit.codigo || kit.titulo) : 'Manual', creado: new Date().toISOString() });
+      txt.value = ''; ok.textContent = 'Guardada en prueba. Se aplica desde el próximo kit.';
+    },text:'Enseñar a la app'})));
+}
+const SESION = () => (window.KITSSO_YO && window.KITSSO_YO.email) || '';
+function quienSoy(){ if (SESION()) return SESION(); try { return localStorage.getItem('aprAutor') || ''; } catch(e){ return ''; } }
+function vAprendizaje(){
+  $main.append(h('div',{}, h('div',{class:'eyebrow',text:'BERLIAM · Contrato 4600031257'}), h('h1',{text:'Aprendizaje'}),
+    h('p',{class:'sub',text:'Los prevencionistas le enseñan a la app. Cada regla nueva se aplica desde el kit siguiente y queda "en prueba". Pasa a regla fija sola cuando otro prevencionista, distinto del que la escribió, la confirma. Cualquiera puede descartarla o corregir su texto; queda registrado quién lo hizo.'})), ...banner());
+  $main.append(h('div',{class:'card'}, h('h2',{text:'Enseñar algo nuevo'}), formApr(null)));
+  const yoIn = h('input',{class:'in',placeholder:'Tu nombre (para confirmar o descartar)','aria-label':'Tu nombre',style:'max-width:320px'}); yoIn.value = quienSoy();
+  yoIn.addEventListener('input',()=>{ try { localStorage.setItem('aprAutor', yoIn.value.trim()); } catch(e){} });
+  if (SESION()){ yoIn.disabled = true; } $main.append(h('div',{class:'card'}, h('div',{class:'row'}, h('span',{class:'sub',text:'Revisas como:'}), yoIn)));
+  const norm = x => String(x||'').trim().toLowerCase();
+  for (const [est, tit, vacio] of [['prueba','En prueba','No hay reglas en prueba.'],['fija','Reglas fijas','Aún no hay reglas fijas.'],['descartada','Descartadas','']]){
+    const L = APR.filter(a => (a.estado || 'prueba') === est); if (est === 'descartada' && !L.length) continue;
+    const card = h('div',{class:'card'}, h('h2',{text:tit + ' (' + L.length + ')'}));
+    if (!L.length) card.append(h('p',{class:'sub',text:vacio}));
+    for (const a of L){
+      const txt = h('textarea',{class:'in',rows:2,'aria-label':'Regla'}); txt.value = a.texto || '';
+      const msg = h('span',{class:'sub',role:'status'});
+      const btn = (l, cls, fn) => h('button',{class:'btn sm ' + (cls||''),onclick:fn,text:l});
+      const yo = () => yoIn.value.trim();
+      const log = (accion) => [ ...(a.historial||[]), [new Date().toISOString(), yo(), accion] ];
+      const guardarComo = async (cambios, accion) => { if (!yo()){ msg.textContent = 'Escribe tu nombre arriba.'; return; } await guardarApr({ ...a, ...cambios, historial: log(accion) }); };
+      const confirmar = async () => {
+        if (!yo()){ msg.textContent = 'Escribe tu nombre arriba.'; return; }
+        if (norm(yo()) === norm(a.autor)){ msg.textContent = 'La tiene que confirmar otro prevencionista, no quien la escribió.'; return; }
+        const conf = [...new Set([ ...(a.confirmaciones||[]), yo() ])];
+        await guardarApr({ ...a, confirmaciones: conf, estado: 'fija', aprobada: new Date().toISOString(), historial: log('confirmó') });
+      };
+      const textoCambiado = () => (txt.value.trim() && txt.value.trim() !== a.texto);
+      card.append(h('div',{style:'border-top:1px solid var(--line,#e5e5e5);padding-top:10px;margin-top:10px'}, txt,
+        h('div',{class:'row between',style:'margin-top:6px'}, h('span',{class:'sub',text:'Aplica a: ' + (a.aplica||[]).map(p => (APR_PARTES.find(x=>x[0]===p)||[p,p])[1]).join(', ') + ' · Origen: ' + (a.origen || 'Manual') + (a.autor ? ' · Enseñó: ' + a.autor : '') + ((a.confirmaciones||[]).length ? ' · Confirmó: ' + a.confirmaciones.join(', ') : '')}),
+          h('div',{class:'row'}, msg,
+            // Corregir el texto de una regla la devuelve a prueba con quien la corrigió como autor: otro tiene que confirmarla.
+            btn('Corregir texto','',()=>{ if (!textoCambiado()){ msg.textContent = 'Cambia el texto primero.'; return; } guardarComo({ texto: txt.value.trim(), autor: yo(), confirmaciones: [], estado: 'prueba' }, 'corrigió'); }),
+            est !== 'fija' ? btn('Confirmar','pri',confirmar) : btn('Volver a prueba','',()=>guardarComo({ estado: 'prueba', confirmaciones: [] }, 'volvió a prueba')),
+            est !== 'descartada' ? btn('Descartar','',()=>guardarComo({ estado: 'descartada' }, 'descartó')) : btn('Recuperar','',()=>guardarComo({ estado: 'prueba', confirmaciones: [] }, 'recuperó'))))));
+    }
+    $main.append(card);
+  }
+}
 function vBiblio(){
   const M = D.rfmeta || {}; const f = S.bfiltro || 'declarados';
   const lista = Object.entries(D.rfcat).filter(([c,r]) => rfAmbito(r,f));

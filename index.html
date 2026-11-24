@@ -126,11 +126,11 @@ table.t td.c{text-align:center;font-variant-numeric:tabular-nums}
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="data.js?v=01c39551"></script>
+<script src="data.js?v=c7408a01"></script>
 <script src="miper_oficial.js?v=30d8c29a"></script>
 <script src="mapa.js?v=66bc4c2e"></script>
 <script src="traz.js?v=b4ac1666"></script>
-<script src="revisar.js?v=7146c18b"></script>
+<script src="revisar.js?v=a7a576a8"></script>
 <script src="mapa_oficial.js?v=ac8a6ca9"></script>
 <script src="imagenes_proc.js?v=e7f5d425"></script>
 <script>
@@ -290,6 +290,7 @@ async function cargarPartes(k){
   for (const [parte, n] of Object.entries(k._partes)){
     let txt = ''; for (let i = 0; i < n; i++){ const d = await db.doc('kitpartes/' + k.id + '__' + parte + '__' + i).get(); txt += (d.exists && d.data().s) || ''; }
     try { k[parte] = JSON.parse(txt); } catch { k[parte] = null; }
+    if (parte === 'miper' && Array.isArray(k.miper)) for (const f of k.miper) f.codigo = String(f.codigo||'').replace(/_RC(\d\d)/,'_RF$1'); // códigos antiguos RC → RF
   }
   delete k._partes; delete k._mcodigos; return k;
 }
@@ -432,7 +433,7 @@ ${catalogoTexto()}
 
 ⟦S9⟧
 
-Responde SOLO con JSON: {"filas":[{"tarea_n":"1","codigo":"(B1)_RC09_Atrapamiento","peligro":"…","P":4,"C":4,"Pr":2,"Cr":4,"val_inh":null,"val_res":null,"medidas":"…","jerarquia":"…"}],"respuestas_aplicadas":[{"pregunta":"…","cambio":"…"}]}${resLote(lote).length ? ' En "respuestas_aplicadas" pon una entrada por cada dato confirmado de estas tareas: "pregunta" es el texto exacto de la pregunta y "cambio" dice en una frase qué fila de la MIPER cambió por esa respuesta (peligro agregado o quitado, código, P×C o medida concreta). Si de verdad no cambia nada, explica por qué en "cambio".' : ''}`;
+Responde SOLO con JSON: {"filas":[{"tarea_n":"1","codigo":"(B1)_RF09_Atrapamiento","peligro":"…","P":4,"C":4,"Pr":2,"Cr":4,"val_inh":null,"val_res":null,"medidas":"…","jerarquia":"…"}],"respuestas_aplicadas":[{"pregunta":"…","cambio":"…"}]}${resLote(lote).length ? ' En "respuestas_aplicadas" pon una entrada por cada dato confirmado de estas tareas: "pregunta" es el texto exacto de la pregunta y "cambio" dice en una frase qué fila de la MIPER cambió por esa respuesta (peligro agregado o quitado, código, P×C o medida concreta). Si de verdad no cambia nada, explica por qué en "cambio".' : ''}`;
       const r = await pedir(prompt, `Evaluando peligros de las tareas ${lote[0].n} a ${lote[lote.length-1].n} (${li+1} de ${lotes.length})`, 'default');
       for (const f of (r && r.filas) || []) filas.push(f);
       for (const x of (r && r.respuestas_aplicadas) || []) if (x && x.pregunta) efecto[String(x.pregunta)] = String(x.cambio||'');
@@ -454,6 +455,7 @@ function construirMiper(filas){
   return out;
 }
 function fila(t, codigo, peligro, P, C, Pr, Cr, vi, vr, medidas, jer, entorno){
+  codigo = String(codigo||'').replace(/_RC(\d\d)/,'_RF$1');
   const cat = (D.catalogo.find(c=>c.cod===codigo)||{}).cat || '';
   const r = { tarea_n: t.n, tarea: t.tarea, cargo: (t.cargos||[]).join(' / '), dotacion: t.dotacion, codigo: String(codigo||''), cat, peligro: String(peligro||''), medidas: String(medidas||''), jerarquia: String(jer||''), resp: 'ADC / SUPERVISION', entorno: !!entorno };
   P=num(P); C=num(C); Pr=num(Pr); Cr=num(Cr);
@@ -462,12 +464,12 @@ function fila(t, codigo, peligro, P, C, Pr, Cr, vi, vr, medidas, jer, entorno){
   return r;
 }
 function sincronizarRF(k){
-  // Coherencia: si la MIPER evalúa un RCxx en una tarea, el listado (y por tanto el procedimiento) debe llevar su RFxx.
+  // Coherencia: si la MIPER evalúa un código RFxx (antes RCxx) en una tarea, el listado (y por tanto el procedimiento) debe llevar su RFxx.
   k.rfAgregados = [];
   for (const t of (k.listado && k.listado.tareas) || []){
     t.rf = t.rf || [];
     for (const f of k.miper.filter(f => f.tarea_n === t.n && !f.entorno)){
-      const m = String(f.codigo || '').match(/_RC(\d\d)(_|$)/); if (!m) continue;
+      const m = String(f.codigo || '').match(/_R[CF](\d\d)(_|$)/); if (!m) continue;
       const rf = 'RF' + m[1]; if (!D.rfcat[rf] || t.rf.includes(rf)) continue;
       t.rf.push(rf); t.rf.sort(); k.rfAgregados.push(`Tarea ${t.n}: ${rf}`);
     }
@@ -480,14 +482,14 @@ function alertas(){
     const fs = k.miper.filter(f=>f.tarea_n===t.n && !f.entorno);
     if (!fs.length) A.push(['b',`Tarea ${t.n}: no tiene peligros propios evaluados.`]);
     for (const rf of t.rf){ const rr = D.rfcat[rf]; if (!rr) A.push(['b',`Tarea ${t.n}: ${rf} no existe en la SIGO-G-012 vigente.`]); else if (!rr.declarado) A.push(['b',`Tarea ${t.n}: ${rf} ${rr.nombre} no está en la declaración de aplicabilidad de BERLIAM. El RESSO v11 descuenta 5% por exponerse a un RF no declarado: decláralo o cambia el método.`]); }
-    for (const rf of t.rf){ const rc = 'RC' + rf.slice(2); if (!CODES.some(c=>c.includes(rc))) continue; if (!k.miper.some(f=>f.tarea_n===t.n && (f.codigo.includes('_'+rc+'_') || f.codigo.includes('_'+rc)))) A.push(['w',`Tarea ${t.n}: el listado marca ${rf} pero la MIPER no tiene un peligro ${rc}.`]); }
+    for (const rf of t.rf){ const rc = 'RF' + rf.slice(2); if (!CODES.some(c=>c.includes(rc))) continue; if (!k.miper.some(f=>f.tarea_n===t.n && (f.codigo.includes('_'+rc+'_') || f.codigo.includes('_'+rc)))) A.push(['w',`Tarea ${t.n}: el listado marca ${rf} pero la MIPER no tiene un peligro ${rc}.`]); }
   }
   for (const [q,v] of Object.entries(k.respuestas||{})) if (v && v.trim() && k.efectoRespuestas && !k.efectoRespuestas[q]) A.push(['w',`La respuesta "${v}" a "${q}" no aparece aplicada en la MIPER. Revisa la tarea o regenera la MIPER.`]);
   for (const x of k.rfAgregados || []) A.push(['w',`${x} se agregó al listado y al procedimiento porque la MIPER evalúa ese riesgo crítico. Revisa que corresponda.`]);
   for (const f of k.miper){
     if (!CODES.includes(f.codigo)) A.push(['b',`Tarea ${f.tarea_n}: el código "${f.codigo}" no está en la lista del formato.`]);
     if (f.P && f.Pr && f.vepr > f.vep) A.push(['b',`Tarea ${f.tarea_n}: el residual de "${f.peligro.slice(0,50)}" es mayor que el inherente.`]);
-    if (f.C && f.Cr && f.Cr < f.C && !f.entorno && !/RC01|RC22|\(N\)|A1/.test(f.codigo)) A.push(['w',`Tarea ${f.tarea_n}: "${f.peligro.slice(0,50)}" baja la consecuencia de ${f.C} a ${f.Cr}; revisa que la medida quite la energía.`]);
+    if (f.C && f.Cr && f.Cr < f.C && !f.entorno && !/R[CF]01|R[CF]22|\(N\)|A1/.test(f.codigo)) A.push(['w',`Tarea ${f.tarea_n}: "${f.peligro.slice(0,50)}" baja la consecuencia de ${f.C} a ${f.Cr}; revisa que la medida quite la energía.`]);
   }
   return A;
 }
@@ -503,7 +505,7 @@ Descripción original: ${k.desc}
 Riesgos de fatalidad de la actividad: ${rfs.join(', ')}.
 ${Object.entries(k.respuestas||{}).filter(([,v])=>v&&v.trim()).length ? 'Datos confirmados por el usuario (úsalos en equipos, herramientas, EPP y medidas donde correspondan):\n' + Object.entries(k.respuestas).filter(([,v])=>v&&v.trim()).map(([q,v])=>'- ' + q + ' → ' + v).join('\n') + '\n' : ''}
 Responde SOLO con JSON:
-{"objetivo":"…","rf":{"RF09":{"riesgos":["Atrapamiento con…"],"medidas":["Cumplir con RC09 …","…"]}},"bloqueo":[{"area":"…","filas":[["equipo a bloquear","","sala eléctrica"]]}],"recursos":{"insumos":[],"herramientas":[],"equipos_apoyo":[],"repuestos":[],"epp":[],"epp_especificos":[]},"ecf":["ECF 1 Aislación y bloqueo"],"evaluacion":["¿…?"],"aspectos":[["aspecto ambiental","efecto posible","control operacional"]]}
+{"objetivo":"…","rf":{"RF09":{"riesgos":["Atrapamiento con…"],"medidas":["Cumplir con RF09 …","…"]}},"bloqueo":[{"area":"…","filas":[["equipo a bloquear","","sala eléctrica"]]}],"recursos":{"insumos":[],"herramientas":[],"equipos_apoyo":[],"repuestos":[],"epp":[],"epp_especificos":[]},"ecf":["ECF 1 Aislación y bloqueo"],"evaluacion":["¿…?"],"aspectos":[["aspecto ambiental","efecto posible","control operacional"]]}
 ⟦S10⟧${(D.rfmeta.ecf||[]).map((e,i)=>'ECF '+(i+1)+' '+e).join(', ')}⟦S11⟧`;
   try {
     const r = await pedir(prompt, 'Redactando el procedimiento', 'default');
@@ -691,7 +693,7 @@ function vistaTraz(){
   // Cruce mapa → listado → MIPER → procedimiento, tarea por tarea y RF por RF.
   const k = S.cur; const p = k.proc;
   const enProc = rf => !!(p && (p.rf_tablas||[]).some(x => x.codigo === rf || x.rf === rf)) || !!(p && (p.rf||[]).includes(rf));
-  const rcDe = f => { const m = String(f.codigo||'').match(/_RC(\d\d)(_|$)/); return m ? 'RF' + m[1] : null; };
+  const rcDe = f => { const m = String(f.codigo||'').match(/_R[CF](\d\d)(_|$)/); return m ? 'RF' + m[1] : null; };
   let malos = 0;
   const chip = (ok, txt) => h('span',{class:'chip ' + (ok ? 'g' : 'b'),style:'margin:1px',text:txt});
   const t = h('table',{class:'t'}, h('thead',{}, h('tr',{}, ...['N°','Tarea (mapa)','Paso del procedimiento','RF del listado','Riesgos críticos en la MIPER','RF con tabla en el procedimiento','Peligros propios','Nivel inherente / residual más alto','Estado'].map(x=>h('th',{text:x})))));
@@ -702,7 +704,7 @@ function vistaTraz(){
     const rfL = (x.rf||[]).slice().sort();
     // Los peligros de entorno del área (sílice, ruido, etc.) también cubren su RF en la MIPER.
     const rfEnt = new Set((k.miper||[]).filter(f => String(f.tarea_n) === String(x.n) && f.entorno).map(rcDe).filter(Boolean));
-    const faltaMiper = rfL.filter(r => !rfM.includes(r) && !rfEnt.has(r) && CODES.some(c => c.includes('RC' + r.slice(2))));
+    const faltaMiper = rfL.filter(r => !rfM.includes(r) && !rfEnt.has(r) && CODES.some(c => c.includes('RF' + r.slice(2))));
     const faltaList = rfM.filter(r => !rfL.includes(r));
     const faltaProc = p ? [...new Set([...rfL, ...rfM])].filter(r => !enProc(r)) : [];
     const problemas = [ ...faltaMiper.map(r => r + ' sin peligro en la MIPER'), ...faltaList.map(r => r + ' está en la MIPER pero no en el listado'), ...faltaProc.map(r => r + ' sin tabla en el procedimiento'), ...(fs.length ? [] : ['sin peligros propios']), ...(p ? [] : ['procedimiento sin generar']) ];
@@ -784,7 +786,7 @@ function datosTerreno(k){
   for (const f of faltantesCortos(k.listado)) out.push({ id: 'f:' + f, etiqueta: f, valor: T['f:' + f] || '' });
   ((k.proc && k.proc.bloqueo) || []).forEach((b, bi) => (b.filas || []).forEach((r, ri) => out.push({ id: `tag:${bi}:${ri}`, etiqueta: 'TAG de bloqueo: ' + (r[0] || 'equipo') + (b.area ? ' (' + b.area + ')' : ''), valor: r[1] || '', tag: [bi, ri] })));
   const cods = Array.isArray(k.miper) ? k.miper.map(f => f.codigo) : (k._mcodigos || []);
-  if (cods.some(c => /O1\)?_RC20/.test(c))) out.push({ id: 'med:silice', etiqueta: 'Medición de sílice del área (informe y fecha)', valor: T['med:silice'] || '' });
+  if (cods.some(c => /O1\)?_R[CF]20/.test(c))) out.push({ id: 'med:silice', etiqueta: 'Medición de sílice del área (informe y fecha)', valor: T['med:silice'] || '' });
   if (cods.some(c => /P1\)?_/.test(c))) out.push({ id: 'med:ruido', etiqueta: 'Medición de ruido del área (informe y fecha)', valor: T['med:ruido'] || '' });
   return out;
 }
@@ -919,7 +921,7 @@ En "medidas" escribe el texto completo nuevo, ordenado por jerarquía. P, C, Pr 
       for (const x of (r && r.hallazgos) || []) k.revisionExt.hallazgos.push(limpiarHallazgo(x, 'MIPER'));
     }
     if (PR && !RV.cancelar){
-      const resumen = tareas.map(t => ({ tarea: t.n, texto: t.tarea, rf: [...new Set(k.miper.filter(f => f.tarea_n === t.n).map(f => (String(f.codigo).match(/_RC(\d\d)/)||[])[1]).filter(Boolean).map(x => 'RF' + x))] }));
+      const resumen = tareas.map(t => ({ tarea: t.n, texto: t.tarea, rf: [...new Set(k.miper.filter(f => f.tarea_n === t.n).map(f => (String(f.codigo).match(/_R[CF](\d\d)/)||[])[1]).filter(Boolean).map(x => 'RF' + x))] }));
       const r = await pedirRev(`${RAZONAMIENTO}
 
 Estás REVISANDO un procedimiento de trabajo VELTB que ya existe, contra su MIPER. Encuentra lo que está mal o falta y explica cómo corregirlo.
@@ -1099,7 +1101,7 @@ function aprendido(parte){
 }
 async function guardarApr(a){ if (!db) return null; const id = a.id || ('a' + Date.now().toString(36) + uid().slice(0,4)); const o = { ...a }; delete o.id; await db.doc('aprendizajes/' + id).set(o); return id; }
 function formApr(kit){
-  const txt = h('textarea',{class:'in',rows:3,placeholder:'Ej.: En la medición con ohmímetro sobre bornes, el contacto eléctrico (RC01) se evalúa P4 × C4 aunque haya bloqueo, porque se trabaja con las puertas abiertas.','aria-label':'Qué debe aprender la app'});
+  const txt = h('textarea',{class:'in',rows:3,placeholder:'Ej.: En la medición con ohmímetro sobre bornes, el contacto eléctrico (RF01) se evalúa P4 × C4 aunque haya bloqueo, porque se trabaja con las puertas abiertas.','aria-label':'Qué debe aprender la app'});
   const sel = {}; const chk = APR_PARTES.map(([v,l]) => { const c = h('input',{type:'checkbox'}); c.checked = v === 'miper'; sel[v] = c; return h('label',{class:'row',style:'gap:6px;font-size:13px'}, c, l); });
   const ok = h('span',{class:'sub',role:'status'});
   const autor = h('input',{class:'in',placeholder:'Quién enseña (nombre del prevencionista)','aria-label':'Quién enseña',style:'max-width:320px'}); autor.value = quienSoy(); if (SESION()){ autor.disabled = true; autor.style.display = 'none'; }

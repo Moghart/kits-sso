@@ -88,7 +88,7 @@ window.leerProcDoc = async function(buf, nombre){
 };
 
 /* ---------- Revisiones automáticas ---------- */
-const RC = cod => { const m = String(cod||'').match(/_RC(\d\d)(_|$)/); return m ? 'RF' + m[1] : null; };
+const RC = cod => { const m = String(cod||'').match(/_R[CF](\d\d)(_|$)/); return m ? 'RF' + m[1] : null; };
 window.revisionAutomatica = function(M, PR, MAPA, D){
   const H = []; const add = (prioridad, doc, ubic, problema, porque, como, fuente, extra) => H.push({ prioridad, doc, ubic, problema, porque, como, fuente, ...(extra||{}) });
   const CODES = D.catalogo.map(c => c.cod); const ENT = D.entorno.map(e => e.codigo);
@@ -106,7 +106,7 @@ window.revisionAutomatica = function(M, PR, MAPA, D){
   const noDecl = rfM.filter(rf => D.rfcat[rf] && !D.rfcat[rf].declarado);
   if (noDecl.length) add('CRITICO','MIPER','RF ' + noDecl.join(', '), 'La MIPER expone RF que BERLIAM no tiene declarados: ' + noDecl.join(', ') + '.', 'El RESSO v11 descuenta 5% por exponerse a un RF no declarado.', 'Confirmar si la tarea realmente expone ese RF. Si es así, declararlo; si no, cambiar el código.', 'formato');
   const faltaEnt = tareas.map(t => ({ t, falta: ENT.filter(c => !M.filas.some(f => f.tn === t.tn && f.cod.split('_')[0] === c.split('_')[0])) })).filter(x => x.falta.length);
-  const cuenta = {}; for (const x of faltaEnt) for (const c of x.falta){ const e = D.entorno.find(e => e.codigo === c); const nom = String(c).split('_').slice(1).join(' ').replace(/^RC\d\d /,''); cuenta[nom] = (cuenta[nom]||0) + 1; }
+  const cuenta = {}; for (const x of faltaEnt) for (const c of x.falta){ const e = D.entorno.find(e => e.codigo === c); const nom = String(c).split('_').slice(1).join(' ').replace(/^R[CF]\d\d /,''); cuenta[nom] = (cuenta[nom]||0) + 1; }
   if (faltaEnt.length) add('MAYOR','MIPER', faltaEnt.length + ' de ' + tareas.length + ' tareas', 'Faltan peligros de entorno: ' + Object.entries(cuenta).sort((a,b) => b[1]-a[1]).map(([n,c]) => n.toLowerCase() + ' (' + c + ' tareas)').join(', ') + '.', 'La guía MH-0001 los evalúa en cada tarea porque están presentes en todo el sector.', 'Agregar los peligros de entorno que faltan en cada tarea.', 'MH-0001', { cambio: { tipo: 'entorno', tareas: faltaEnt.map(x => x.t.tn) } });
   if (PR){
     const sinProc = rfM.filter(rf => !PR.rfs.includes(rf));

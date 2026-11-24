@@ -315,14 +315,14 @@ Riesgos de fatalidad (SIGO-G-012 v002). Declarados por BERLIAM para el contrato:
 Cargos habituales: Supervisor, Mecánico, Eléctrico, Rigger, Operador de grúa / puente grúa, Soldador, Ayudante. BERLIAM hace mantención mecánica y eléctrica industrial; no hace cambio ni empalme de cintas.
 
 Responde SOLO con JSON con esta forma:
-{"titulo":"…","tareas":[{"n":"1","tarea":"Coordinar…","rnr":"R","cargos":["Supervisor"],"dotacion":1,"energias":["…"],"linea_fuego":"…","evento":"…","rf":["RF09"],"control_principal":"…","y_si_falla":"…"}],"preguntas":[{"pregunta":"…","por_que":"cómo cambia el riesgo"}],"faltantes":["…"]}
-${k.desdeMapa ? '⟦S2⟧\n' : ''}Reglas: ${k.desdeMapa ? 'las tareas del mapa' : 'entre 8 y 25 tareas'}; ⟦S3⟧; "faltantes": siempre vacío [].`;
+{"titulo":"…","tareas":[{"n":"1","tarea":"Coordinar…","rnr":"R","cargos":["Supervisor"],"dotacion":1,"energias":["…"],"linea_fuego":"…","evento":"…","rf":["RF09"],"control_principal":"…","y_si_falla":"…"}],"preguntas":[{"pregunta":"…","opciones":["Sí","No"],"por_que":"qué cambia en la MIPER con cada opción"}],"faltantes":["…"]}
+${k.desdeMapa ? '⟦S2⟧\n' : ''}Reglas: ${k.desdeMapa ? 'las tareas del mapa' : 'entre 8 y 25 tareas'}; ⟦S3⟧; ⟦S5⟧ "faltantes": siempre vacío [].`;
   try {
     const r = await pedir(prompt, 'Analizando la actividad con el criterio del área', 'complex');
     if (!r || !Array.isArray(r.tareas) || !r.tareas.length) throw { code: 'invalid_json' };
     if (k.desdeMapa && k.listado){ const orig = k.listado.tareas; r.tareas = orig.map((o,i) => { const a = r.tareas.find(x => String(x.n) === String(o.n)) || r.tareas[i] || {}; return { ...a, tarea: o.tarea, rnr: o.rnr, cargos: (o.cargos&&o.cargos.length)?o.cargos:(a.cargos||[]), dotacion: o.dotacion || a.dotacion }; }); }
     k.listado = { tareas: r.tareas.map((t,i)=>({ n: String(i+1), tarea: String(t.tarea||''), rnr: t.rnr==='NR'?'NR':'R', cargos: (t.cargos||[]).map(String), dotacion: Number(t.dotacion)||1, energias:(t.energias||[]).map(String), linea_fuego:String(t.linea_fuego||''), evento:String(t.evento||''), rf:(t.rf||[]).map(String).filter(x=>/^RF\d\d$/.test(x)), control_principal:String(t.control_principal||''), y_si_falla:String(t.y_si_falla||'') })),
-      preguntas: (r.preguntas||[]).slice(0,4).map(q=>({ pregunta:String(q.pregunta||''), por_que:String(q.por_que||'') })), faltantes:(r.faltantes||[]).map(String).slice(0,6) };
+      preguntas: (r.preguntas||[]).slice(0,4).map(q=>({ pregunta:String(q.pregunta||''), opciones:(Array.isArray(q.opciones)?q.opciones:[]).map(String).slice(0,4), por_que:String(q.por_que||'') })), faltantes:(r.faltantes||[]).map(String).slice(0,6) };
     if (!k.titulo && r.titulo) k.titulo = String(r.titulo);
     k.respuestasUsadas = Object.fromEntries(Object.entries(k.respuestas||{}).filter(([,v]) => v && v.trim()));
     k.aprobado = false; k.miper = null; k.proc = null; S.step = 2;
@@ -352,8 +352,8 @@ Riesgos de fatalidad válidos (SIGO-G-012 v002): ${Object.entries(D.rfcat).map((
 
 ⟦S4⟧
 Devuelve SOLO las tareas cuyo análisis cambia por estas respuestas (mismo n y mismo texto de tarea; no agregues ni quites tareas). Si ninguna cambia, "tareas" va vacío.
-Responde SOLO con JSON: {"tareas":[{"n":"3","energias":["…"],"linea_fuego":"…","evento":"…","rf":["RF01"],"control_principal":"…","y_si_falla":"…"}],"preguntas":[{"pregunta":"…","por_que":"…"}],"faltantes":["…"]}
-"preguntas": ${cupo ? '⟦S5⟧' + Math.min(2,cupo) + '⟦S6⟧' : 'vacío: ya se hicieron todas las preguntas permitidas; lo que no se sepa va en "faltantes"'}. "faltantes": siempre vacío [].`;
+Responde SOLO con JSON: {"tareas":[{"n":"3","energias":["…"],"linea_fuego":"…","evento":"…","rf":["RF01"],"control_principal":"…","y_si_falla":"…"}],"preguntas":[{"pregunta":"…","opciones":["Sí","No"],"por_que":"…"}],"faltantes":["…"]}
+"preguntas": ${cupo ? '⟦S6⟧' + Math.min(2,cupo) + '⟦S7⟧' : 'vacío: ya se hicieron todas las preguntas permitidas; lo que no se sepa va en "faltantes"'}. "faltantes": siempre vacío [].`;
   try {
     const r = await pedir(prompt, 'Aplicando tus respuestas solo a las tareas afectadas', 'complex');
     if (!r || !Array.isArray(r.tareas)) throw { code: 'invalid_json' };
@@ -364,7 +364,7 @@ Responde SOLO con JSON: {"tareas":[{"n":"3","energias":["…"],"linea_fuego":"�
       if (Array.isArray(a.rf)) t.rf = a.rf.map(String).filter(x => /^RF\d\d$/.test(x));
       cambiadas.push(t.n); }
     const respondidas = new Set(Object.keys(k.respuestas||{}).filter(q => (k.respuestas[q]||'').trim()));
-    L.preguntas = [...L.preguntas.filter(q => !respondidas.has(q.pregunta)), ...(r.preguntas||[]).slice(0,Math.min(2,cupo)).map(q => ({ pregunta: String(q.pregunta||''), por_que: String(q.por_que||'') }))].filter(q => q.pregunta && !respondidas.has(q.pregunta)).slice(0,6);
+    L.preguntas = [...L.preguntas.filter(q => !respondidas.has(q.pregunta)), ...(r.preguntas||[]).slice(0,Math.min(2,cupo)).map(q => ({ pregunta: String(q.pregunta||''), opciones:(Array.isArray(q.opciones)?q.opciones:[]).map(String).slice(0,4), por_que: String(q.por_que||'') }))].filter(q => q.pregunta && !respondidas.has(q.pregunta)).slice(0,6);
     for (const [q,v] of nuevas) usadas[q] = v; k.respuestasUsadas = usadas;
     k.aprobado = false; k.miper = null; k.proc = null;
     S.aviso = cambiadas.length ? 'Se actualizaron las tareas ' + cambiadas.join(', ') + '. Las demás quedaron igual.' : 'Tus respuestas no cambian el análisis de ninguna tarea.';
@@ -378,7 +378,8 @@ function catalogoTexto(){
 }
 async function generarMiper(){
   const k = S.cur; S.err = null;
-  const tareas = k.listado.tareas; const filas = [];
+  const tareas = k.listado.tareas; const filas = []; const efecto = {};
+  const resLote = lote => Object.entries(k.respuestas||{}).filter(([q,v]) => v && v.trim() && lote.some(t => new RegExp('^\\s*Tarea\\s+' + t.n + '\\b','i').test(q)));
   const lotes = []; for (let i = 0; i < tareas.length; i += 3) lotes.push(tareas.slice(i, i+3));
   try {
     for (let li = 0; li < lotes.length; li++){
@@ -387,18 +388,19 @@ async function generarMiper(){
 
 Vas a llenar la MIPER SIGO-F-006 v7 para estas tareas de la actividad "${k.titulo}" (${k.equipo}):
 ${JSON.stringify(lote.map(t=>({n:t.n,tarea:t.tarea,energias:t.energias,linea_fuego:t.linea_fuego,evento:t.evento,rf:t.rf,control_principal:t.control_principal})))}
-${Object.entries(k.respuestas||{}).filter(([,v])=>v&&v.trim()).length ? '\n⟦S7⟧\n' + Object.entries(k.respuestas).filter(([,v])=>v&&v.trim()).map(([q,v])=>'- ' + q + ' → ' + v).join('\n') + '\n' : ''}
+${Object.entries(k.respuestas||{}).filter(([,v])=>v&&v.trim()).length ? '\n⟦S8⟧\n' + Object.entries(k.respuestas).filter(([,v])=>v&&v.trim()).map(([q,v])=>'- ' + q + ' → ' + v).join('\n') + '\n' : ''}
 Lista cerrada de códigos de peligro (columna K). Usa el código EXACTO, tal como aparece antes del primer "|":
 ${catalogoTexto()}
 
-⟦S8⟧
+⟦S9⟧
 
-Responde SOLO con JSON: {"filas":[{"tarea_n":"1","codigo":"(B1)_RC09_Atrapamiento","peligro":"…","P":4,"C":4,"Pr":2,"Cr":4,"val_inh":null,"val_res":null,"medidas":"…","jerarquia":"…"}]}`;
+Responde SOLO con JSON: {"filas":[{"tarea_n":"1","codigo":"(B1)_RC09_Atrapamiento","peligro":"…","P":4,"C":4,"Pr":2,"Cr":4,"val_inh":null,"val_res":null,"medidas":"…","jerarquia":"…"}],"respuestas_aplicadas":[{"pregunta":"…","cambio":"…"}]}${resLote(lote).length ? ' En "respuestas_aplicadas" pon una entrada por cada dato confirmado de estas tareas: "pregunta" es el texto exacto de la pregunta y "cambio" dice en una frase qué fila de la MIPER cambió por esa respuesta (peligro agregado o quitado, código, P×C o medida concreta). Si de verdad no cambia nada, explica por qué en "cambio".' : ''}`;
       const r = await pedir(prompt, `Evaluando peligros de las tareas ${lote[0].n} a ${lote[lote.length-1].n} (${li+1} de ${lotes.length})`, 'default');
       for (const f of (r && r.filas) || []) filas.push(f);
+      for (const x of (r && r.respuestas_aplicadas) || []) if (x && x.pregunta) efecto[String(x.pregunta)] = String(x.cambio||'');
     }
   } catch (e) { S.err = errTexto(e); render(); return; }
-  k.miper = construirMiper(filas); sincronizarRF(k); S.step = 3; S.tab = 'miper';
+  k.miper = construirMiper(filas); sincronizarRF(k); k.efectoRespuestas = efecto; S.step = 3; S.tab = 'miper';
   await guardar(); render();
 }
 function construirMiper(filas){
@@ -442,6 +444,7 @@ function alertas(){
     for (const rf of t.rf){ const rr = D.rfcat[rf]; if (!rr) A.push(['b',`Tarea ${t.n}: ${rf} no existe en la SIGO-G-012 vigente.`]); else if (!rr.declarado) A.push(['b',`Tarea ${t.n}: ${rf} ${rr.nombre} no está en la declaración de aplicabilidad de BERLIAM. El RESSO v11 descuenta 5% por exponerse a un RF no declarado: decláralo o cambia el método.`]); }
     for (const rf of t.rf){ const rc = 'RC' + rf.slice(2); if (!CODES.some(c=>c.includes(rc))) continue; if (!k.miper.some(f=>f.tarea_n===t.n && (f.codigo.includes('_'+rc+'_') || f.codigo.includes('_'+rc)))) A.push(['w',`Tarea ${t.n}: el listado marca ${rf} pero la MIPER no tiene un peligro ${rc}.`]); }
   }
+  for (const [q,v] of Object.entries(k.respuestas||{})) if (v && v.trim() && k.efectoRespuestas && !k.efectoRespuestas[q]) A.push(['w',`La respuesta "${v}" a "${q}" no aparece aplicada en la MIPER. Revisa la tarea o regenera la MIPER.`]);
   for (const x of k.rfAgregados || []) A.push(['w',`${x} se agregó al listado y al procedimiento porque la MIPER evalúa ese riesgo crítico. Revisa que corresponda.`]);
   for (const f of k.miper){
     if (!CODES.includes(f.codigo)) A.push(['b',`Tarea ${f.tarea_n}: el código "${f.codigo}" no está en la lista del formato.`]);
@@ -463,7 +466,7 @@ Riesgos de fatalidad de la actividad: ${rfs.join(', ')}.
 ${Object.entries(k.respuestas||{}).filter(([,v])=>v&&v.trim()).length ? 'Datos confirmados por el usuario (úsalos en equipos, herramientas, EPP y medidas donde correspondan):\n' + Object.entries(k.respuestas).filter(([,v])=>v&&v.trim()).map(([q,v])=>'- ' + q + ' → ' + v).join('\n') + '\n' : ''}
 Responde SOLO con JSON:
 {"objetivo":"…","rf":{"RF09":{"riesgos":["Atrapamiento con…"],"medidas":["Cumplir con RC09 …","…"]}},"bloqueo":[{"area":"…","filas":[["equipo a bloquear","","sala eléctrica"]]}],"recursos":{"insumos":[],"herramientas":[],"equipos_apoyo":[],"repuestos":[],"epp":[],"epp_especificos":[]},"ecf":["ECF 1 Aislación y bloqueo"],"evaluacion":["¿…?"],"aspectos":[["aspecto ambiental","efecto posible","control operacional"]]}
-⟦S9⟧${(D.rfmeta.ecf||[]).map((e,i)=>'ECF '+(i+1)+' '+e).join(', ')}⟦S10⟧`;
+⟦S10⟧${(D.rfmeta.ecf||[]).map((e,i)=>'ECF '+(i+1)+' '+e).join(', ')}⟦S11⟧`;
   try {
     const r = await pedir(prompt, 'Redactando el procedimiento', 'default');
     k.proc = armarProc(r || {}, rfs); S.tab = 'proc';
@@ -527,8 +530,21 @@ function paso2(){
   if (L.preguntas && L.preguntas.length){
     const qs = h('div',{class:'qs'});
     L.preguntas.forEach((q,i)=>{ const id='q'+i; const inp=h('input',{class:'in',id,placeholder:'Tu respuesta'}); inp.value=k.respuestas[q.pregunta]||''; inp.addEventListener('input',()=>{k.respuestas[q.pregunta]=inp.value;});
-      qs.append(h('div',{class:'q'}, h('label',{for:id,style:'font-weight:600',text:q.pregunta}), h('div',{class:'sub',text:q.por_que}), inp)); });
-    $main.append(h('div',{class:'card'}, h('h2',{text:'Preguntas que cambian el riesgo'}), h('p',{class:'sub',text:'Son opcionales. Si no sabes una, déjala en blanco y da el visto bueno.'}), qs,
+      const ops = (q.opciones||[]).length ? h('div',{class:'row',style:'gap:6px;margin:6px 0'}, ...q.opciones.map(o => { const b = h('button',{class:'btn sm' + (inp.value===o?' pri':''),type:'button',text:o,onclick:()=>{ inp.value = o; k.respuestas[q.pregunta] = o; for (const x of b.parentNode.children) x.classList.remove('pri'); b.classList.add('pri'); }}); return b; })) : null;
+      if (ops) inp.placeholder = 'O escribe otra respuesta';
+      const motIn = h('input',{class:'in',placeholder:'¿Por qué no sirve? (opcional)','aria-label':'Motivo',style:'max-width:360px'});
+      const evalQ = async (valida) => {
+        const motivo = valida ? '' : motIn.value.trim();
+        await guardarApr({ texto: valida ? `Ejemplo de pregunta útil (cambia la MIPER): «${q.pregunta}»` : `No hacer preguntas como «${q.pregunta}»${motivo ? ' porque ' + motivo : ''}.`, aplica: ['listado'], autor: quienSoy(), estado: 'prueba', origen: (k.codigo || k.titulo) + ' · evaluación de pregunta', creado: new Date().toISOString() });
+        q.evaluada = valida ? 'valida' : 'no_sirve';
+        if (!valida){ delete k.respuestas[q.pregunta]; L.preguntas = L.preguntas.filter(x => x !== q); }
+        await guardar(); render();
+      };
+      const evalRow = q.evaluada ? h('span',{class:'chip ' + (q.evaluada==='valida'?'g':'n'),text: q.evaluada==='valida' ? 'Marcada como válida' : 'Descartada'})
+        : q._descartando ? h('div',{class:'row',style:'gap:6px'}, motIn, h('button',{class:'btn sm pri',type:'button',onclick:()=>evalQ(false),text:'Descartar pregunta'}), h('button',{class:'btn sm',type:'button',onclick:()=>{ q._descartando = false; render(); },text:'Cancelar'}))
+        : h('div',{class:'row',style:'gap:6px'}, h('span',{class:'sub',text:'¿Sirve para la MIPER?'}), h('button',{class:'btn sm',type:'button',onclick:()=>evalQ(true),text:'Sí, es válida'}), h('button',{class:'btn sm',type:'button',onclick:()=>{ q._descartando = true; render(); },text:'No sirve'}));
+      qs.append(h('div',{class:'q'}, h('div',{class:'row between'}, h('label',{for:id,style:'font-weight:600',text:q.pregunta}), evalRow), h('div',{class:'sub',text:q.por_que}), ops, inp)); });
+    $main.append(h('div',{class:'card'}, h('h2',{text:'Preguntas que cambian el riesgo'}), h('p',{class:'sub',text:'Son opcionales. Si no sabes una, déjala en blanco y da el visto bueno. Si una pregunta no sirve para la MIPER, márcala: la app aprende qué preguntar y qué no.'}), qs,
       h('div',{class:'row',style:'justify-content:flex-end'}, h('button',{class:'btn',disabled:!sample||!!S.busy,onclick:actualizarConRespuestas,text:'Actualizar listado con mis respuestas'}))));
   }
   const lista = h('div',{class:'card'});
@@ -566,6 +582,10 @@ function paso3(){
     h('button',{class:'btn sm',disabled:!downloads||!k.proc,onclick:bajarProc,text:'Descargar procedimiento (.docx)'}));
   $main.append(h('div',{class:'card'}, h('div',{class:'row between'}, tabs, acciones),
     S.tab==='miper'? tablaMiper() : S.tab==='proc'? vistaProc() : S.tab==='mapa'? tablaMapa() : S.tab==='traz'? vistaTraz() : vistaRev(A)));
+  const usadas = Object.entries(k.respuestas||{}).filter(([,v]) => v && v.trim());
+  if (usadas.length) $main.append(h('div',{class:'card'}, h('div',{class:'eyebrow',text:'Preguntas'}), h('h2',{text:'Lo que cambió con tus respuestas'}),
+    h('div',{class:'tw'}, h('table',{class:'t'}, h('thead',{}, h('tr',{}, ...['Pregunta','Tu respuesta','Cambio en la MIPER'].map(x=>h('th',{text:x})))),
+      h('tbody',{}, ...usadas.map(([q,v]) => { const c = (k.efectoRespuestas||{})[q]; return h('tr',{}, h('td',{text:q}), h('td',{text:v}), h('td',{}, c ? h('span',{text:c}) : h('span',{class:'chip w',text: k.efectoRespuestas ? 'Sin cambio informado' : 'Genera la MIPER de nuevo para verlo'}))); }))))));
   $main.append(cajaTerreno(), cajaRevision(), h('div',{class:'card'}, h('div',{class:'eyebrow',text:'Aprendizaje'}), h('h2',{text:'¿Qué corregiste en este kit? Enséñaselo a la app'}), h('p',{class:'sub',text:'Escríbelo como regla general para que sirva en los próximos kits. Queda en prueba hasta que otro prevencionista la confirme en Aprendizaje.'}), formApr(S.cur)), cajaFirmas());
   $main.append(h('p',{class:'sub',text:'Borrador para revisión de un prevencionista.'}));
 }

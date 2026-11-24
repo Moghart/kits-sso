@@ -110,18 +110,45 @@ function pantallaLogin(primerAdmin, aviso){
   });
   document.body.appendChild(el('div', { id: 'kxLogin' }, el('div', { class: 'bx' },
     el('h1', { text: 'Kits SSO' }),
-    el('p', { text: primerAdmin ? 'Primera vez: crea la cuenta del administrador. Después, el administrador agrega a los demás usuarios.' : 'BERLIAM · Codelco DRT. Entra con el correo y la contraseña que te dio el administrador.' }), f)));
+    el('p', { text: primerAdmin ? 'Primera vez: crea la cuenta del administrador. Después, el administrador agrega a los demás usuarios.' : 'BERLIAM · Codelco DRT. Entra con el correo y la contraseña que te dio el administrador.' }), f,
+    primerAdmin ? '' : el('p', { style: 'margin:14px 0 0;text-align:center' }, el('a', { href: '#', id: 'kxOlv', text: '¿Olvidaste tu contraseña?', onclick: (ev) => { ev.preventDefault(); pantallaOlvide(em.value); } })))));
   em.focus();
+}
+function pantallaOlvide(correo){
+  document.getElementById('kxLogin')?.remove();
+  const em = el('input', { type: 'email', autocomplete: 'username', id: 'kxEm' }); em.value = correo || '';
+  const co = el('input', { type: 'text', inputmode: 'numeric', autocomplete: 'one-time-code', id: 'kxCo', maxlength: '6' });
+  const pw = el('input', { type: 'password', autocomplete: 'new-password', id: 'kxPw' });
+  const er = el('div', { class: 'er', role: 'alert' });
+  const paso2 = el('div', { hidden: '' }, el('label', { for: 'kxCo', text: 'Código que llegó a tu correo' }), co, el('label', { for: 'kxPw', text: 'Contraseña nueva (mínimo 8 caracteres)' }), pw);
+  const bt = el('button', { type: 'submit', text: 'Enviarme un código' });
+  const txt = el('p', { text: 'Escribe tu correo. Te enviaremos un código de 6 números para crear una contraseña nueva.' });
+  const f = el('form', {}, el('label', { for: 'kxEm', text: 'Correo' }), em, paso2, bt, er);
+  let enviado = false;
+  f.addEventListener('submit', async (ev) => {
+    ev.preventDefault(); er.textContent = ''; bt.disabled = true;
+    try {
+      if (!enviado){ bt.textContent = 'Enviando…'; await call('olvide', em.value);
+        enviado = true; paso2.hidden = false; em.readOnly = true; txt.textContent = 'Si el correo tiene cuenta, te llegó un código (revisa también Spam). Vence en 15 minutos.'; bt.textContent = 'Guardar y entrar'; co.focus(); }
+      else { bt.textContent = 'Guardando…'; const r = await call('restablecer', em.value, co.value, pw.value);
+        token = r.token; try { localStorage.setItem('kitsso-token', token); } catch (_) {} yo = r; entrar(); }
+    } catch (e) { er.textContent = e.message || 'No se pudo.'; bt.textContent = enviado ? 'Guardar y entrar' : 'Enviarme un código'; }
+    bt.disabled = false;
+  });
+  document.body.appendChild(el('div', { id: 'kxLogin' }, el('div', { class: 'bx' }, el('h1', { text: 'Contraseña nueva' }), txt, f,
+    el('p', { style: 'margin:14px 0 0;text-align:center' }, el('a', { href: '#', text: 'Volver a ingresar', onclick: (ev) => { ev.preventDefault(); pantallaLogin(false); } })))));
+  (em.value ? (bt.focus(), null) : em.focus());
 }
 function entrar(){ document.getElementById('kxLogin')?.remove(); window.KITSSO_YO = { email: yo.email, admin: !!yo.admin }; barra(); listo(); }
 function barra(){
   document.getElementById('kxBar')?.remove();
   const b = el('div', { id: 'kxBar' });
   if (yo.admin) b.append(el('button', { text: 'Usuarios', onclick: panelUsuarios }));
+  b.append(el('button', { text: 'Cambiar contraseña', onclick: panelClave }));
   b.append(el('button', { text: 'Salir (' + yo.email + ')', onclick: () => salir(false) }));
   document.body.appendChild(b);
 }
-async function panelUsuarios(){
+async function panelUsuarios(recien){
   document.getElementById('kxAdm')?.remove();
   const cont = el('div', { class: 'bx' }, el('h2', { text: 'Usuarios' }), el('p', { text: 'Cargando…' }));
   const ov = el('div', { id: 'kxAdm', onclick: (e) => { if (e.target === ov) ov.remove(); } }, cont); document.body.appendChild(ov);
@@ -129,16 +156,50 @@ async function panelUsuarios(){
   const tb = el('tbody');
   for (const u of j.usuarios.filter(x => x.activo)){ const x = j.uso[u.email] || { n: 0, tin: 0, tout: 0 };
     tb.append(el('tr', {}, el('td', { text: u.email }), el('td', { text: u.admin ? 'Admin' : 'Usuario' }), el('td', { text: x.n + ' análisis · ' + Math.round((x.tin + x.tout) / 1000) + 'k tokens' }),
-      el('td', {}, u.email === yo.email ? '' : el('button', { text: 'Quitar', onclick: async () => { try { await T('quitarUsuario', u.email); panelUsuarios(); } catch (e) { alertar(e.message); } } })))); }
+      el('td', { style: 'white-space:nowrap' }, el('button', { text: 'Nueva contraseña', onclick: () => resetear(u) }), ' ', u.email === yo.email ? '' : el('button', { text: 'Quitar', onclick: async () => { try { await T('quitarUsuario', u.email); panelUsuarios(); } catch (e) { alertar(e.message); } } })))); }
   const em = el('input', { type: 'email', placeholder: 'correo@empresa.cl', 'aria-label': 'Correo' });
   const pw = el('input', { type: 'text', placeholder: 'Contraseña inicial (8+)', 'aria-label': 'Contraseña inicial' });
+  const tel = el('input', { type: 'tel', placeholder: '+56 9 1234 5678', 'aria-label': 'WhatsApp (opcional)' });
   const er = el('div', { style: 'color:#b91c1c;font-size:13px;min-height:1em' }); const alertar = m => { er.textContent = m; };
+  const envio = el('div');
+  const mostrarEnvio = (email, clave, nueva) => envio.replaceChildren(cajaEnvio(email, clave, tel.value, nueva));
+  const resetear = async (u) => { er.textContent = ''; const clave = claveAzar();
+    try { await T('crearUsuario', u.email, clave, !!u.admin); mostrarEnvio(u.email, clave, true); } catch (e) { er.textContent = e.message; } };
   cont.replaceChildren(el('h2', { text: 'Usuarios' }),
     el('p', { text: 'Uso de los últimos 30 días. Agrega usuarios con una contraseña inicial y entrégasela tú; no se envían correos.' }),
     el('table', {}, el('thead', {}, el('tr', {}, el('th', { text: 'Correo' }), el('th', { text: 'Rol' }), el('th', { text: 'Uso' }), el('th'))), tb),
-    el('div', { class: 'row' }, el('label', {}, 'Correo', em), el('label', {}, 'Contraseña', pw),
-      el('button', { class: 'pri', text: 'Agregar', onclick: async () => { er.textContent = ''; try { await T('crearUsuario', em.value, pw.value, false); panelUsuarios(); } catch (e) { er.textContent = e.message; } } })),
-    er, el('div', { style: 'text-align:right;margin-top:10px' }, el('button', { text: 'Cerrar', onclick: () => ov.remove() })));
+    el('div', { class: 'row' }, el('label', {}, 'Correo', em), el('label', {}, 'Contraseña', pw), el('label', {}, 'WhatsApp (opcional)', tel),
+      el('button', { class: 'pri', text: 'Agregar', onclick: async () => { er.textContent = ''; const correo = em.value.trim().toLowerCase(), clave = pw.value;
+        try { await T('crearUsuario', correo, clave, false); await panelUsuarios({ email: correo, clave, tel: tel.value }); } catch (e) { er.textContent = e.message; } } })),
+    er, envio, el('div', { style: 'text-align:right;margin-top:10px' }, el('button', { text: 'Cerrar', onclick: () => ov.remove() })));
+  if (recien && recien.email) { tel.value = recien.tel || ''; mostrarEnvio(recien.email, recien.clave, false); }
+  pw.value = claveAzar();
+}
+function claveAzar(){ const a = 'abcdefghjkmnpqrstuvwxyz23456789'; const r = new Uint32Array(10); crypto.getRandomValues(r); return Array.from(r, n => a[n % a.length]).join(''); }
+function linkApp(){ return location.origin + location.pathname.replace(/index\.html$/, ''); }
+function cajaEnvio(email, clave, tel, nueva){
+  const txt = 'Hola, ' + (nueva ? 'te dejé una contraseña nueva' : 'te creé una cuenta') + ' en Kits SSO (BERLIAM).\n\nEntra aquí: ' + linkApp() + '\nCorreo: ' + email + '\nContraseña: ' + clave + '\n\nAl entrar, cámbiala con el botón "Cambiar contraseña".';
+  let num = String(tel || '').replace(/\D/g, ''); if (num.length === 9 && num[0] === '9') num = '56' + num;
+  const wa = 'https://wa.me/' + num + '?text=' + encodeURIComponent(txt);
+  const ok = el('span', { style: 'font-size:13px;color:#15803d;margin-left:8px' });
+  return el('div', { style: 'margin-top:12px;padding:12px 14px;border:1px solid #86efac;background:#f0fdf4;border-radius:10px' },
+    el('p', { style: 'margin:0 0 8px;font-weight:600', text: (nueva ? 'Contraseña nueva para ' : 'Cuenta creada: ') + email }),
+    el('pre', { style: 'white-space:pre-wrap;font:13px/1.45 system-ui;margin:0 0 10px;color:#1f2937', text: txt }),
+    el('button', { class: 'pri', text: 'Enviar por WhatsApp', onclick: () => window.open(wa, '_blank', 'noopener') }), ' ',
+    el('button', { text: 'Copiar mensaje', onclick: async () => { try { await navigator.clipboard.writeText(txt); ok.textContent = 'Copiado'; } catch (_) { ok.textContent = 'No se pudo copiar; selecciónalo a mano.'; } } }), ok);
+}
+function panelClave(){
+  document.getElementById('kxAdm')?.remove();
+  const a = el('input', { type: 'password', autocomplete: 'current-password', 'aria-label': 'Contraseña actual' });
+  const n = el('input', { type: 'password', autocomplete: 'new-password', 'aria-label': 'Contraseña nueva' });
+  const er = el('div', { role: 'alert', style: 'font-size:13px;min-height:1em;margin-top:6px' });
+  const ov = el('div', { id: 'kxAdm', onclick: (e) => { if (e.target === ov) ov.remove(); } }, el('div', { class: 'bx', style: 'max-width:420px' },
+    el('h2', { text: 'Cambiar contraseña' }),
+    el('label', {}, 'Contraseña actual', a), el('label', {}, 'Contraseña nueva (mínimo 8)', n), er,
+    el('div', { style: 'text-align:right;margin-top:10px' }, el('button', { text: 'Cancelar', onclick: () => ov.remove() }), ' ',
+      el('button', { class: 'pri', text: 'Guardar', onclick: async () => { er.style.color = '#b91c1c'; er.textContent = '';
+        try { await T('cambiarClave', a.value, n.value); er.style.color = '#15803d'; er.textContent = 'Listo. Desde ahora entra con la nueva.'; setTimeout(() => ov.remove(), 1500); } catch (e) { er.textContent = e.message; } } }))));
+  document.body.appendChild(ov); a.focus();
 }
 (async () => {
   if (token){ try { yo = await call('yo', token); return entrar(); } catch (_) { token = null; } }

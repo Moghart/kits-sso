@@ -185,8 +185,8 @@ table.t td.c{text-align:center;font-variant-numeric:tabular-nums}
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="data.js?v=93bdfc8d"></script>
-<script src="miper_oficial.js?v=aceaab98"></script>
+<script src="data.js?v=4bc65fe4"></script>
+<script src="miper_oficial.js?v=e37d1fac"></script>
 <script src="mapa.js?v=66bc4c2e"></script>
 <script src="traz.js?v=b4ac1666"></script>
 <script src="revisar.js?v=a7a576a8"></script>
@@ -510,9 +510,16 @@ Responde SOLO con JSON: {"tareas":[{"n":"3","energias":["…"],"linea_fuego":"�
   render();
 }
 
+/* Nivel según los parámetros del contrato: si la tabla de la prevencionista (peligros de entorno de data.js) evalúa ese código con ese texto, manda su nivel; si no, la hoja NIVELES del formato. */
+function nivelContrato(cod, texto){
+  const t = window.kxTextoVRE(texto);
+  for (const e of D.entorno) if (e.codigo === cod) for (const v of [e.inherente, e.residual]) if (typeof v[0] !== 'number' && window.kxTextoVRE(v[2]) === t && v[3]) return v[3];
+  return window.kxNivelNS(t);
+}
+window.kxNivelContrato = nivelContrato;
 function catalogoTexto(){
-  const par = p => typeof p[0] === 'number' ? p.join(',') : 'val_inh "' + p[0] + '|' + window.kxNivelNS(p[0]) + '" → val_res "' + p[1] + '|' + window.kxNivelNS(p[1]) + '"';
-  return D.catalogo.map(c => `${c.cod} | ${c.cat} | pares ${typeof (c.pares[0]||[])[0] === 'number' ? 'P,C→Pr,Cr: ' : '(texto|nivel, cópialos exactos): '}${c.pares.map(par).join(' / ')} | ej: ${c.ej.slice(0,2).join(' ; ')}`).join('\n');
+  const par = (p, cod) => typeof p[0] === 'number' ? p.join(',') : 'val_inh "' + p[0] + '|' + nivelContrato(cod, p[0]) + '" → val_res "' + p[1] + '|' + nivelContrato(cod, p[1]) + '"';
+  return D.catalogo.map(c => `${c.cod} | ${c.cat} | pares ${typeof (c.pares[0]||[])[0] === 'number' ? 'P,C→Pr,Cr: ' : '(texto|nivel, cópialos exactos): '}${c.pares.map(p => par(p, c.cod)).join(' / ')} | ej: ${c.ej.slice(0,2).join(' ; ')}`).join('\n');
 }
 async function generarMiper(){
   const k = S.cur; S.err = null;
@@ -559,7 +566,7 @@ function fila(t, codigo, peligro, P, C, Pr, Cr, vi, vr, medidas, jer, entorno, r
   const r = { tarea_n: t.n, tarea: t.tarea, cargo: (t.cargos||[]).join(' / '), dotacion: t.dotacion, codigo: String(codigo||''), cat, peligro: String(peligro||''), medidas: String(medidas||''), jerarquia: String(jer||''), resp: resp || 'ADC / SUPERVISION', entorno: !!entorno };
   P=num(P); C=num(C); Pr=num(Pr); Cr=num(Cr);
   // Higiene / músculo-esquelético: texto oficial completo y nivel (si la IA lo deja vacío se calcula con la tabla NIVELES del formato)
-  const ns = v => { const [a,b] = String(v||'|').split('|'); const t = window.kxTextoVRE(a); const n = String(b||'').trim(); return [t, n && !/^(TOLERABLE|MODERADO|IMPORTANTE|INTOLERABLE|null|undefined)$/i.test(n) ? n : window.kxNivelNS(t)]; };
+  const ns = v => { const [a,b] = String(v||'|').split('|'); const t = window.kxTextoVRE(a); const n = String(b||'').trim(); return [t, n && !/^(TOLERABLE|MODERADO|IMPORTANTE|INTOLERABLE|null|undefined)$/i.test(n) ? n : nivelContrato(codigo, t)]; };
   if (P && C){ r.P=P; r.C=C; r.vep=P*C; r.niv=NIVEL(P*C); } else { const [a,b]=ns(vi); r.vep=a; r.niv=b; }
   if (Pr && Cr){ r.Pr=Pr; r.Cr=Cr; r.vepr=Pr*Cr; r.nivr=NIVEL(Pr*Cr); } else { const [a,b]=ns(vr); r.vepr=a; r.nivr=b; }
   return r;

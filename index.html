@@ -889,6 +889,10 @@ function cajaRevision(){
   const k = S.cur; const mot = h('input',{class:'in',id:'revMot',placeholder:'Qué cambia (ej.: se agrega bloqueo mecánico del eje)'}); const it = h('input',{class:'in',id:'revIt',placeholder:'Ítem (ej.: 5.4)'});
   return h('div',{class:'card'}, h('div',{class:'row between'}, h('div',{}, h('div',{class:'eyebrow',text:'Versión del documento'}), h('h2',{text:(k.codigo||'Sin código')+' · Revisión '+(Number(k.revision)||0)})),
       h('span',{class:'sub',text:(k.historial||[]).length+' registro(s) en el historial'})),
+    (() => { const c = h('input',{class:'in',id:'kitCod','aria-label':'Código del kit',style:'max-width:300px'}); c.value = k.codigo || ''; const ok = h('span',{class:'sub',role:'status'});
+      return h('div',{class:'row',style:'align-items:flex-end'}, h('label',{class:'f',for:'kitCod'},'Código del kit', c), h('button',{class:'btn sm',onclick:async()=>{ const v = c.value.trim(); if (!v){ ok.textContent = 'Escribe el código.'; return; } if (v === k.codigo){ ok.textContent = 'Sin cambios.'; return; }
+        const rep = S.kits.find(x => x.id !== k.id && String(x.codigo||'').trim() === v); if (rep){ ok.textContent = 'Ese código ya lo usa "' + (rep.titulo||'otro kit') + '".'; return; }
+        k.codigo = v; if (k.proc) k.proc.codigo = v; await guardar(); S.aviso = 'Código cambiado a ' + v + '. Sale así en todas las descargas.'; render(); },text:'Cambiar código'}), ok); })(),
     h('p',{class:'sub',text:'El código y la revisión se ponen solos y salen en la portada, el encabezado, el historial del procedimiento y la MIPER. Crea una revisión cuando el kit ya se emitió y cambias algo (aprendizaje de una ART, incidente, auditoría o cambio de método).'}),
     h('div',{class:'grid2'}, h('label',{class:'f',for:'revMot'},'Motivo del cambio',mot), h('label',{class:'f',for:'revIt'},'Ítem modificado',it)),
     h('div',{class:'row',style:'justify-content:flex-end'}, h('button',{class:'btn',onclick:()=>{ if(!mot.value.trim()){S.err='Escribe el motivo de la nueva revisión.';render();return;} nuevaRevision(mot.value.trim(), it.value.trim()); },text:'Crear revisión '+((Number(k.revision)||0)+1)})),
@@ -939,14 +943,24 @@ const aB64 = u => { let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += 
 const deB64 = b => { const s = atob(b); const u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u; };
 async function cargarMapa(file){
   if (!file) return; S.err = null;
-  try { const buf = await file.arrayBuffer(); S.mapa = await window.leerMapa(buf); S.mapa.archivo = file.name; S.mapa.b64 = aB64(new Uint8Array(buf)); if (!S.mapa.actividades.length) throw new Error('El mapa no tiene tareas en la sección D.'); go('mapa'); }
+  try { const buf = await file.arrayBuffer(); S.mapa = await window.leerMapa(buf); S.mapa.archivo = file.name; S.mapaCod = null; S.mapa.b64 = aB64(new Uint8Array(buf)); if (!S.mapa.actividades.length) throw new Error('El mapa no tiene tareas en la sección D.'); go('mapa'); }
   catch (e) { S.err = 'No pude leer el mapa: ' + (e.message || 'formato no reconocido') + ' Debe ser el SIGO-F-011 en .xlsx.'; go('panel'); }
 }
 function procesoDe(a){ const P = (S.mapa && S.mapa.meta && S.mapa.meta.procesos) || {}; return P[String(a.n).split('.')[0]] || ''; }
 function prefProceso(a){ const p = procesoDe(a).toUpperCase(); return /EL[EÉ]CTR/.test(p) ? 'ME' : /HIDR/.test(p) ? 'MH' : 'MM'; }
-function kitDesdeActividad(a){
+/* Código del kit: si el mapa (nombre de la actividad, texto del mapa o nombre del archivo) trae uno, se respeta tal cual (ME-0088 queda ME-0088). */
+function normCodigo(t){
+  const m = String(t||'').toUpperCase().match(/(VELTB-P-[A-Z]+\d*-)?(?<![A-Z0-9])(MM|MH|MEL|ME|MA|MI)[-_ ]?(\d{3,4})(?!\d)/);
+  if (!m) return '';
+  return (m[1] || 'VELTB-P-CRT208-') + m[2] + '-' + m[3].padStart(4,'0');
+}
+function codigoPropuesto(a){
+  const M = S.mapa || {}; const unico = (M.actividades||[]).length === 1;
+  return normCodigo(a.nombre) || normCodigo((a.tareas||[]).map(t => t.cod || '').join(' ')) || (unico ? (normCodigo(JSON.stringify(M.meta||{})) || normCodigo(M.archivo)) : '') || siguienteCodigo('VELTB-P-CRT208-' + prefProceso(a) + '-');
+}
+function kitDesdeActividad(a, codigo){
   const M = S.mapa.meta || {}; const t0 = a.tareas[0] || {};
-  const k = { id: 'k' + Date.now().toString(36) + uid().slice(0,4), titulo: a.nombre.replace(/^\s*\d+(\.\d+)*\s*/, ''), codigo: siguienteCodigo('VELTB-P-CRT208-' + prefProceso(a) + '-'), proceso: procesoDe(a), revision: 0, historial: [[0,'Confección de procedimiento','Todos',FECHA()]],
+  const k = { id: 'k' + Date.now().toString(36) + uid().slice(0,4), titulo: a.nombre.replace(/^\s*\d+(\.\d+)*\s*/, ''), codigo: String(codigo || codigoPropuesto(a)).trim(), proceso: procesoDe(a), revision: 0, historial: [[0,'Confección de procedimiento','Todos',FECHA()]],
     area: t0.lugar || M.area || '', equipo: t0.lugar || '', dotacion: String(Math.max(...a.tareas.map(t => Number(t.dotacion)||0)) || ''), desdeMapa: true, mapaArchivo: S.mapa.archivo, mapaB64: S.mapa.b64 || null,
     dot_mapa: { m: t0.m, f: t0.f, nb: t0.nb },
     desc: 'Actividad del mapa de procesos SIGO-F-011 (' + S.mapa.archivo + '): ' + a.nombre + '. Tareas: ' + a.tareas.map((t,i) => (i+1) + ') ' + t.tarea).join(' '),
@@ -959,10 +973,15 @@ function vMapa(){
   $main.append(h('div',{}, h('div',{class:'eyebrow',text:'Mapa de procesos SIGO-F-011 · ' + m.archivo}), h('h1',{text:m.actividades.length + (m.actividades.length===1?' actividad encontrada':' actividades encontradas')}),
     h('p',{class:'sub',text:[m.meta.gerencia, m.meta.superintendencia, m.meta.area, m.meta.contrato].filter(Boolean).join(' · ')}),
     h('p',{class:'sub',text:'Cada actividad se convierte en un kit con las mismas tareas del mapa. Después la app completa energías, RF, MIPER y procedimiento sin cambiar las tareas.'})), ...banner());
+  S.mapaCod = S.mapaCod || {};
   m.actividades.forEach((a, i) => {
     const ya = S.kits.find(x => x.desdeMapa && x.titulo === a.nombre.replace(/^\s*\d+(\.\d+)*\s*/, ''));
+    if (S.mapaCod[i] == null) S.mapaCod[i] = codigoPropuesto(a);
+    const cod = h('input',{class:'in','aria-label':'Código del kit de ' + a.nombre,style:'max-width:280px'}); cod.value = S.mapaCod[i];
+    cod.addEventListener('input', () => { S.mapaCod[i] = cod.value; });
     $main.append(h('div',{class:'card'}, h('div',{class:'row between'}, h('div',{style:'min-width:0'}, h('h2',{text:a.n + ' · ' + a.nombre}), h('div',{class:'sub',text:a.tareas.length + ' tareas · ' + (a.tareas[0].lugar||'') + ' · ' + (a.tareas[0].cargos||[]).join(', ')})),
-        h('div',{class:'row'}, ya ? h('span',{class:'chip g',text:'Ya tiene kit'}) : null, h('button',{class:'btn ' + (ya?'':'pri'),onclick:async()=>{ S.cur = kitDesdeActividad(a); S.step = 2; await guardar(); go('kit'); },text: ya ? 'Crear otro kit' : 'Crear kit de esta actividad'}))),
+        h('div',{class:'row'}, ya ? h('span',{class:'chip g',text:'Ya tiene kit'}) : null, h('button',{class:'btn ' + (ya?'':'pri'),onclick:async()=>{ const c = cod.value.trim(); if (!c){ S.err = 'Escribe el código del kit.'; render(); return; } const rep = S.kits.find(x => String(x.codigo||'').trim() === c); if (rep){ S.err = 'El código ' + c + ' ya lo usa el kit "' + (rep.titulo||'') + '". Cambia el código o abre ese kit.'; render(); return; } S.cur = kitDesdeActividad(a, c); S.mapaCod = null; S.step = 2; await guardar(); go('kit'); },text: ya ? 'Crear otro kit' : 'Crear kit de esta actividad'}))),
+      h('label',{class:'f',style:'margin:8px 0'}, 'Código del kit (se usa en el procedimiento, la MIPER, el mapa y los nombres de archivo; puedes cambiarlo)', cod),
       h('ol',{style:'margin:0;padding-left:20px'}, ...a.tareas.slice(0,8).map(t => h('li',{style:'font-size:13px',text:(t.cod?t.cod+' ':'')+t.tarea+' ('+t.rnr+')'})), a.tareas.length>8 ? h('li',{class:'muted',style:'font-size:13px;list-style:none',text:'… y '+(a.tareas.length-8)+' más'}) : null)));
   });
 }
@@ -1006,7 +1025,7 @@ async function procesarRevision(){
   const tareas = []; for (const f of M.filas) if (!tareas.find(t => t.n === f.tn)) tareas.push({ n: f.tn, tarea: f.tarea, rnr: 'R', cargos: String(f.cargo||'').split(/\s*[\/,]\s*/).filter(Boolean), dotacion: Number(f.dot)||1, energias: [], linea_fuego: '', evento: '', rf: [], control_principal: '', y_si_falla: '' });
   const ENT = D.entorno.map(e => e.codigo.split('_')[0]);
   const k = { id: 'k' + Date.now().toString(36) + uid().slice(0,4), revisado: true, titulo: String(M.actividad||'').replace(/^\s*\d+(\.\d+)*\.?\s*/,'').replace(/\s*\(VELTB[^)]*\)\s*/g,' ').trim() || (RV.miper.name.replace(/\.[^.]+$/,'').replace(/[_-]+/g,' ')),
-    codigo: (PR && PR.codigo) || ((String(M.actividad) + ' ' + RV.miper.name).match(/VELTB-P-[A-Z0-9]+-[A-Z]{2,3}-\d{3,4}/) || [])[0] || '', proceso: M.proceso || '', area: '', equipo: '', dotacion: String(Math.max(...tareas.map(t => t.dotacion)) || ''),
+    codigo: (PR && PR.codigo) || ((String(M.actividad) + ' ' + RV.miper.name).match(/VELTB-P-[A-Z0-9]+-[A-Z]{2,3}-\d{3,4}/) || [])[0] || normCodigo(M.actividad) || normCodigo(RV.miper.name) || normCodigo(RV.proc && RV.proc.name) || normCodigo(RV.mapa && RV.mapa.name) || '', proceso: M.proceso || '', area: '', equipo: '', dotacion: String(Math.max(...tareas.map(t => t.dotacion)) || ''),
     dot_mapa: { f: M.hdr.F, m: M.hdr.M, nb: M.hdr.NB }, respuestas: {}, aprobado: true, proc: null, mapaB64, mapaArchivo: RV.mapa ? RV.mapa.name : null, desdeMapa: !!mapaB64,
     listado: { tareas, preguntas: [], faltantes: [] } };
   const rev0 = PR && PR.revision != null ? PR.revision : null;
@@ -1434,7 +1453,7 @@ async function guardarArchivo(filename, data){
   try { await downloads.save({ filename, data }); }
   catch (e) { if (e.code !== 'declined'){ S.err = 'No se pudo descargar el archivo (' + (e.code||'error') + ').'; render(); } }
 }
-function nombreBase(){ const k = S.cur; return (k.codigo && k.codigo.length > 18 ? k.codigo : 'kit') + '_Rev' + (Number(k.revision)||0) + '_' + (k.titulo||'actividad').replace(/[^\wáéíóúñÁÉÍÓÚÑ ]/g,'').trim().replace(/\s+/g,'_').slice(0,40); }
+function nombreBase(){ const k = S.cur; return (String(k.codigo||'').trim() ? String(k.codigo).trim().replace(/[^\w.-]+/g,'_') : 'kit') + '_Rev' + (Number(k.revision)||0) + '_' + (k.titulo||'actividad').replace(/[^\wáéíóúñÁÉÍÓÚÑ ]/g,'').trim().replace(/\s+/g,'_').slice(0,40); }
 function bajarJson(){
   const k = S.cur;
   guardarArchivo(nombreBase()+'_kit.json', JSON.stringify({ revision:Number(k.revision)||0, historial:k.historial||[], listado:k.listado, miper:k.miper, procedimiento:k.proc, titulo:k.titulo, codigo:k.codigo, equipo:k.equipo, area:k.area, desc:k.desc }, null, 1));
@@ -1585,6 +1604,7 @@ const H1 = t => para(t,{style:'Heading1',b:true,before:160,after:80});
 const H2 = t => para(t,{style:'Heading2',b:true,before:120,after:60});
 function bajarProc(){
   const k = S.cur, p = k.proc, B = D.base;
+  if (p){ p.codigo = k.codigo || p.codigo; p.titulo = k.titulo || p.titulo; p.revision = String(Number(k.revision)||0); }
   // imágenes de los anexos (mismas que la guía MH-0001)
   const IMGS = []; let imgId = 10;
   const img = (nombre, anchoCm, alto) => { const I = (window.IMG_PROC||{})[nombre]; if (!I) return para('[Falta imagen: '+nombre+']',{color:'595959'});

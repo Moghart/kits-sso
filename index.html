@@ -186,7 +186,7 @@ table.t td.c{text-align:center;font-variant-numeric:tabular-nums}
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="data.js?v=4bc65fe4"></script>
-<script src="miper_oficial.js?v=e37d1fac"></script>
+<script src="miper_oficial.js?v=5cbd3520"></script>
 <script src="mapa.js?v=66bc4c2e"></script>
 <script src="traz.js?v=b4ac1666"></script>
 <script src="revisar.js?v=a7a576a8"></script>
@@ -251,6 +251,7 @@ const rfAmbito = (r, f) => f === 'todos' ? true : f === 'declarados' ? !!r.decla
   if (!window.claude) return;
   [db, sample, downloads] = await Promise.all(['db','sample','downloads'].map(n => window.claude.use(n).catch(() => null)));
   if (db) db.collection('catalogo_rf').onSnapshot(snap => { for (const d of snap.docs){ const v = d.data(); if (v && v.codigo && Array.isArray(v.preventivos)) D.rfcat[v.codigo] = { ...v, titulo: v.nombre, editado: v.editado || 'db' }; } rfNombres(); if (S.view === 'biblioteca') render(); }, () => {});
+  if (db) db.collection('peligros_nf').onSnapshot(snap => { NF = {}; for (const d of snap.docs){ const v = d.data(); if (v && v.codigo) NF[d.id] = v; } aplicarNF(); if (S.view === 'nofatales') render(); }, () => {});
   if (db) db.collection('config').onSnapshot(snap => { const d = snap.docs.find(x => x.id === 'contrato'); S.contrato = d ? d.data() : null; if (S.view === 'contrato') render(); }, () => {});
   if (db) db.collection('correcciones').onSnapshot(snap => { CORR = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => (b.fecha||'').localeCompare(a.fecha||'')); if (S.view === 'aprendizaje') render(); }, () => {});
   if (db) db.collection('aprendizajes').onSnapshot(snap => { APR = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => (b.creado||'').localeCompare(a.creado||'')); if (S.view === 'aprendizaje') render(); }, () => {});
@@ -282,7 +283,7 @@ function renderNav(){
   document.getElementById('empLabel').textContent = S.empresa ? 'BERLIAM · Codelco DRT' : 'Elige una empresa';
   const foot = document.getElementById('navFoot'); foot.textContent = '';
   if (!S.empresa) return;
-  const items = [['panel','Panel','Kits del contrato'],['nueva','Actividad nueva','Crear kit desde cero'],['biblioteca','Biblioteca','Riesgos de fatalidad y controles'],['contrato','Datos del contrato','Teléfonos y firmantes'],['revisar','Revisar documentos','MIPER y procedimientos existentes'],['aprendizaje','Aprendizaje','Lo que la app ha aprendido']];
+  const items = [['panel','Panel','Kits del contrato'],['nueva','Actividad nueva','Crear kit desde cero'],['biblioteca','Biblioteca','Riesgos de fatalidad y controles'],['nofatales','Riesgos no fatales','Higiene, ergonomía y entorno'],['contrato','Datos del contrato','Teléfonos y firmantes'],['revisar','Revisar documentos','MIPER y procedimientos existentes'],['aprendizaje','Aprendizaje','Lo que la app ha aprendido']];
   for (const [v,l,s] of items) nav.append(h('button', { 'aria-current': (S.view === v || (S.view==='kit' && v === (S.cur && S.cur.revisado ? 'revisar' : 'nueva'))) ? 'page' : null, onclick: () => { if (v==='nueva') nuevaActividad(); else go(v); } }, h('span',{text:l}), h('small',{text:s})));
 }
 function render(){
@@ -292,6 +293,7 @@ function render(){
   if (v === 'panel') return vPanel();
   if (v === 'kit') return vKit();
   if (v === 'biblioteca') return vBiblio();
+  if (v === 'nofatales') return vNoFatales();
   if (v === 'contrato') return vContrato();
   if (v === 'aprendizaje') return vAprendizaje();
   if (v === 'mapa') return vMapa();
@@ -513,6 +515,7 @@ Responde SOLO con JSON: {"tareas":[{"n":"3","energias":["…"],"linea_fuego":"�
 /* Nivel según los parámetros del contrato: si la tabla de la prevencionista (peligros de entorno de data.js) evalúa ese código con ese texto, manda su nivel; si no, la hoja NIVELES del formato. */
 function nivelContrato(cod, texto){
   const t = window.kxTextoVRE(texto);
+  for (const c of D.catalogo) if (c.cod === cod) for (const p of c.pares) if (typeof p[0] !== 'number' && p[2]){ if (window.kxTextoVRE(p[0]) === t) return p[2]; if (window.kxTextoVRE(p[1]) === t && p[3]) return p[3]; }
   for (const e of D.entorno) if (e.codigo === cod) for (const v of [e.inherente, e.residual]) if (typeof v[0] !== 'number' && window.kxTextoVRE(v[2]) === t && v[3]) return v[3];
   return window.kxNivelNS(t);
 }
@@ -1293,6 +1296,95 @@ function vAprendizaje(){
     $main.append(h('div',{class:'card'}, h('h2',{text:'Correcciones puntuales (' + sin.length + ')'}), h('p',{class:'sub',text:'Datos propios de un kit que no dejaron una regla general. Quedan como historial.'}),
       ...sin.map(c => h('div',{class:'sub',style:'font-size:12px;border-top:1px solid var(--line,#e5e5e5);padding:6px 0;white-space:pre-line',text:`${c.kitCodigo}${c.tarea ? ', tarea ' + c.tarea : ''} · ${c.quien||'—'} · ${(c.fecha||'').slice(0,10)}\nAntes: ${fmt(c.antes)}\nDespués: ${fmt(c.despues)}${c.motivo ? '\nMotivo: ' + c.motivo : ''}`})))); }
   $main.append(h('details',{class:'card'}, h('summary',{style:'cursor:pointer;font-weight:600',text:'Agregar una regla a mano'}), formApr(null)));
+}
+/* ---------- riesgos no fatales (editables por los prevencionistas) ---------- */
+/* Peligros de entorno (se agregan solos en cada tarea) y pares típicos del resto de peligros que no son RF.
+   Lo editado queda en la colección peligros_nf y manda sobre data.js; "Restablecer" vuelve al valor original. */
+const NF_BASE = { entorno: JSON.parse(JSON.stringify(D.entorno)), catalogo: JSON.parse(JSON.stringify(D.catalogo)) };
+let NF = {}; let ENT_TODOS = D.entorno.slice();
+const nfId = cod => 'nf_' + String(cod).normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Za-z0-9]+/g,'_').slice(0,80);
+const esRF = cod => /_R[CF]\d\d(_|$)/.test(cod);
+function aplicarNF(){
+  const ent = NF_BASE.entorno.map(e => { const o = NF[nfId(e.codigo)]; return o && o.tipo === 'entorno' ? { ...e, ...o.datos, _editado: o } : { ...e }; });
+  for (const o of Object.values(NF)) if (o.tipo === 'entorno' && o.nuevo && !ent.some(e => e.codigo === o.codigo)) ent.push({ ...o.datos, codigo: o.codigo, _editado: o });
+  ENT_TODOS = ent;
+  D.entorno.length = 0; D.entorno.push(...ent.filter(e => e.activo !== false));
+  for (const c of D.catalogo){ const b = NF_BASE.catalogo.find(x => x.cod === c.cod); const o = NF[nfId(c.cod) + '_cat'];
+    c.pares = o && Array.isArray(o.pares) && o.pares.length ? o.pares : (b ? JSON.parse(JSON.stringify(b.pares)) : c.pares); c._editado = o || null; }
+}
+const NF_OPC = () => { const V = window.kxVRE_OF || [];
+  return { HIGIENE: { textos: V.slice(0,6), niveles: ['NIVEL 1','NIVEL 2','NIVEL 3','NIVEL 4','SRE','CRE'] },
+    MUSCULO_ESQUELETICO_ERGO: { textos: V.slice(6,12), niveles: ['BAJO','MEDIO','ALTO'] },
+    PSICOSOCIAL: { textos: V.slice(12,15), niveles: ['BAJO','RAZONABLE','ALTO'] } }; };
+const JER_OF = ['ELIMINACIÓN','SUSTITUCIÓN','CONTROLES DE INGENIERÍA','CONTROLES ADMINISTRATIVOS','EQUIPOS DE PROTECCIÓN PERSONAL'];
+function nfSelect(opts, val, lbl, w){ const e = h('select',{class:'in','aria-label':lbl,style:w?'width:'+w:''}, ...opts.map(o => h('option',{value:String(o),text:String(o)||'—'}))); if (val != null && !opts.map(String).includes(String(val))) e.append(h('option',{value:String(val),text:String(val)})); e.value = val == null ? '' : String(val); return e; }
+/* Editor de una evaluación: seguridad = P y C (1, 2, 4); higiene / músculo-esquelético = texto de exposición + nivel. */
+function nfEval(cat, v, titulo){
+  const O = NF_OPC()[cat];
+  if (!O){ const P = nfSelect(['1','2','4'], v[0], titulo+' P','70px'), C = nfSelect(['1','2','4'], v[1], titulo+' C','70px'); const nv = h('span',{class:'sub'});
+    const up = () => { nv.textContent = '= ' + (P.value*C.value) + ' ' + NIVEL(P.value*C.value); }; P.onchange = C.onchange = up; up();
+    return { el: h('div',{class:'row',style:'gap:6px;align-items:center'}, h('b',{style:'font-size:13px;min-width:70px',text:titulo}), 'P', P, 'C', C, nv), val: () => { const p = Number(P.value), c = Number(C.value); return [p, c, p*c, NIVEL(p*c)]; } }; }
+  const T = nfSelect(O.textos, window.kxTextoVRE(v[2]), titulo+' exposición'), N = nfSelect(O.niveles, v[3], titulo+' nivel','130px');
+  T.onchange = () => { const n = nivelContrato('', T.value); if (n) N.value = n; };
+  return { el: h('div',{class:'row',style:'gap:6px;align-items:center;flex-wrap:wrap'}, h('b',{style:'font-size:13px;min-width:70px',text:titulo}), T, N), val: () => ['NA','NA',T.value,N.value] };
+}
+async function guardarNF(id, doc, msg){
+  if (!db){ msg.textContent = 'Sin conexión con la base de datos.'; return; }
+  try { const o = { ...doc, por: quienSoy() || '—', fecha: new Date().toISOString(), historial: [ ...((NF[id]||{}).historial||[]), [new Date().toISOString(), quienSoy() || '—', doc === null ? 'restableció' : 'editó'] ] };
+    await db.doc('peligros_nf/' + id).set(o); NF[id] = o; aplicarNF(); msg.textContent = S.aviso = 'Guardado. Se usa desde el próximo kit o al regenerar la MIPER.'; }
+  catch(e){ msg.textContent = 'No se pudo guardar (' + (e.code||e.message||'error') + ').'; }
+}
+async function restablecerNF(id, msg){ if (!db) return; try { await db.doc('peligros_nf/' + id).delete(); delete NF[id]; aplicarNF(); S.aviso = 'Restablecido al valor original.'; render(); } catch(e){ msg.textContent = 'No se pudo restablecer.'; } }
+function vNoFatales(){
+  aplicarNF();
+  $main.append(h('div',{}, h('div',{class:'eyebrow',text:'BERLIAM · Contrato 4600031257'}), h('h1',{text:'Riesgos no fatales'}),
+    h('p',{class:'sub',text:'Higiene, músculo-esqueléticos y seguridad que no son RF. Lo que edites aquí se usa en todos los kits nuevos y al regenerar una MIPER; los kits ya hechos no cambian. Cada cambio queda con quién lo hizo y se puede restablecer al valor original.'})), ...banner());
+  const fil = S.nfFiltro || 'entorno';
+  $main.append(h('div',{class:'row'}, ...[['entorno','En todas las tareas ('+ENT_TODOS.length+')'],['catalogo','Resto del catálogo']].map(([v,t]) => h('button',{class:'btn sm'+(fil===v?' pri':''),onclick:()=>{S.nfFiltro=v;render();},text:t}))));
+  if (fil === 'entorno'){
+    $main.append(h('p',{class:'sub',text:'Estos peligros se agregan solos en cada tarea de la MIPER, porque están presentes en todo el sector.'}));
+    for (const e of ENT_TODOS){
+      const id = nfId(e.codigo); const cat = e.categoria || (D.catalogo.find(c => c.cod === e.codigo)||{}).cat || 'SEGURIDAD_EMERGENCIA';
+      const pel = h('textarea',{class:'in',rows:2,'aria-label':'Peligro'}); pel.value = e.peligro || '';
+      const med = h('textarea',{class:'in',rows:6,'aria-label':'Medidas de control'}); med.value = e.medidas || '';
+      const inh = nfEval(cat, e.inherente, 'Inherente'), res = nfEval(cat, e.residual, 'Residual');
+      const jer = nfSelect(JER_OF, e.jerarquia, 'Jerarquía'); const resp = h('input',{class:'in','aria-label':'Responsable'}); resp.value = e.resp || 'ADC / SUPERVISION';
+      const act = h('input',{type:'checkbox'}); act.checked = e.activo !== false;
+      const msg = h('span',{class:'sub',role:'status'}); const ed = e._editado;
+      $main.append(h('div',{class:'card'}, h('div',{class:'row between'}, h('h2',{text:e.codigo.replace(/_/g,' ')}), h('div',{class:'row'}, h('span',{class:'chip n',text:cat.replace(/_/g,' ')}), ed ? h('span',{class:'chip w',text:'Editado por '+(ed.por||'—')+' · '+String(ed.fecha||'').slice(0,10)}) : h('span',{class:'chip g',text:'Original'}))),
+        h('label',{class:'f'},'Peligro (como se escribe en la MIPER)', pel), inh.el, res.el,
+        h('label',{class:'f'},'Medidas de control', med),
+        h('div',{class:'grid2'}, h('label',{class:'f'},'Jerarquía', jer), h('label',{class:'f'},'Responsable', resp)),
+        h('label',{class:'row',style:'gap:6px;font-size:13px;margin-top:6px'}, act, 'Agregar en todas las tareas'),
+        h('div',{class:'row',style:'justify-content:flex-end;margin-top:8px'}, msg,
+          ed && !ed.nuevo ? h('button',{class:'btn sm',onclick:()=>restablecerNF(id,msg),text:'Restablecer original'}) : null,
+          ed && ed.nuevo ? h('button',{class:'btn sm',onclick:()=>restablecerNF(id,msg),text:'Quitar'}) : null,
+          h('button',{class:'btn pri sm',onclick:()=>{ const datos = { peligro: pel.value.trim(), categoria: cat, inherente: inh.val(), residual: res.val(), medidas: med.value.trim(), jerarquia: jer.value, resp: resp.value.trim(), activo: act.checked };
+            if (!datos.peligro){ msg.textContent = 'Escribe el peligro.'; return; }
+            guardarNF(id, { tipo: 'entorno', codigo: e.codigo, nuevo: !!(ed && ed.nuevo), datos }, msg).then(render); },text:'Guardar'}))));
+    }
+    const libres = D.catalogo.filter(c => !esRF(c.cod) && !ENT_TODOS.some(e => e.codigo === c.cod));
+    const sel = nfSelect(['', ...libres.map(c => c.cod)], '', 'Peligro a agregar'); const msg = h('span',{class:'sub',role:'status'});
+    $main.append(h('div',{class:'card'}, h('h2',{text:'Agregar otro peligro en todas las tareas'}), h('div',{class:'row'}, sel, msg,
+      h('button',{class:'btn sm',onclick:()=>{ const c = D.catalogo.find(x => x.cod === sel.value); if (!c){ msg.textContent = 'Elige un peligro.'; return; }
+        const p = c.pares[0] || []; const hig = typeof p[0] !== 'number';
+        const datos = { peligro: (c.ej||[])[0] || c.cod.replace(/^\([^)]*\)_/,'').replace(/_/g,' '), categoria: c.cat, inherente: hig ? ['NA','NA',p[0],nivelContrato(c.cod,p[0])] : [p[0],p[1],p[0]*p[1],NIVEL(p[0]*p[1])], residual: hig ? ['NA','NA',p[1],nivelContrato(c.cod,p[1])] : [p[2],p[3],p[2]*p[3],NIVEL(p[2]*p[3])], medidas: '', jerarquia: 'CONTROLES ADMINISTRATIVOS', resp: 'ADC / SUPERVISION', activo: true };
+        guardarNF(nfId(c.cod), { tipo: 'entorno', codigo: c.cod, nuevo: true, datos }, msg).then(render); },text:'Agregar'}))));
+  } else {
+    $main.append(h('p',{class:'sub',text:'Valores típicos (inherente → residual) que la app propone cuando estos peligros aparecen en una tarea. La primera fila es la que más se usa.'}));
+    for (const c of D.catalogo.filter(c => !esRF(c.cod))){
+      const id = nfId(c.cod) + '_cat'; const msg = h('span',{class:'sub',role:'status'}); const hig = c.cat !== 'SEGURIDAD_EMERGENCIA';
+      const filas = c.pares.map(p => hig ? { i: nfEval(c.cat, ['NA','NA',p[0],p[2]||nivelContrato(c.cod,p[0])], 'Inherente'), r: nfEval(c.cat, ['NA','NA',p[1],p[3]||nivelContrato(c.cod,p[1])], 'Residual') } : { i: nfEval(c.cat, [p[0],p[1]], 'Inherente'), r: nfEval(c.cat, [p[2],p[3]], 'Residual') });
+      const caja = h('div',{}); const pintar = () => { caja.textContent = ''; filas.forEach((f, n) => caja.append(h('div',{style:'border-top:1px solid var(--line);padding:6px 0'}, f.i.el, f.r.el, filas.length > 1 ? h('button',{class:'btn sm',onclick:()=>{ filas.splice(n,1); pintar(); },text:'Quitar esta fila'}) : null))); }; pintar();
+      const valor = () => filas.map(f => { const a = f.i.val(), b = f.r.val(); return hig ? [a[2], b[2], a[3], b[3]] : [a[0], a[1], b[0], b[1]]; });
+      $main.append(h('details',{class:'card'}, h('summary',{style:'cursor:pointer;font-weight:600'}, c.cod.replace(/_/g,' '), ' ', h('span',{class:'chip n',text:c.cat.replace(/_/g,' ')}), c._editado ? h('span',{class:'chip w',text:'Editado por '+(c._editado.por||'—')}) : null),
+        (c.ej||[]).length ? h('p',{class:'sub',style:'font-size:12px',text:'Ejemplos: ' + c.ej.slice(0,3).join(' · ')}) : null, caja,
+        h('div',{class:'row',style:'justify-content:flex-end;margin-top:8px'}, msg,
+          h('button',{class:'btn sm',onclick:()=>{ const p = c.pares[0] || [1,1,1,1]; filas.push(hig ? { i: nfEval(c.cat, ['NA','NA',p[0],''], 'Inherente'), r: nfEval(c.cat, ['NA','NA',p[1],''], 'Residual') } : { i: nfEval(c.cat, [2,2], 'Inherente'), r: nfEval(c.cat, [1,2], 'Residual') }); pintar(); },text:'Agregar fila'}),
+          c._editado ? h('button',{class:'btn sm',onclick:()=>restablecerNF(id,msg),text:'Restablecer original'}) : null,
+          h('button',{class:'btn pri sm',onclick:()=>guardarNF(id, { tipo: 'catalogo', codigo: c.cod, pares: valor() }, msg).then(render),text:'Guardar'}))));
+    }
+  }
 }
 function vBiblio(){
   const M = D.rfmeta || {}; const f = S.bfiltro || 'declarados';

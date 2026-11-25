@@ -52,6 +52,7 @@ function limpiarMedidas(t, cod){
 const VRE_OF = ['VRE< 0,25 LP (Agente Químico o Ruido)','0,25 LP ≤VRE<0,5 LP (Agente Químico o Ruido)','0,5 LP ≤VRE≤ LP (Agente Químico o Ruido)','VRE>LP (Agente Químicos o Ruido) y/o Presencia de Ruido Impulsivo (≥135 dBC Peak)','VRE≤ LP (Otros Agentes Físicos y Agentes biológicos)','VRE>LP (Otros Agentes Físicos y Agentes biológicos)','CONDICIÓN ACEPTABLE','CONDICIÓN MEDIA','CONDICIÓN CRÍTICA','LEVEMENTE EXPUESTO (VIBRACIONES)','MEDIANAMENTE EXPUESTO (VIBRACIONES)','EXPOSICIÓN CONSIDERABLE (VIBRACIONES)','De -24 a +1 punto','De +2 a +12 puntos','Desde +13 y superior'];
 const NIV_OF = ['NIVEL 1','NIVEL 2','NIVEL 3','NIVEL 4','NIVEL 1','NIVEL 4','BAJO','MEDIO','ALTO','BAJO','MEDIO','ALTO','BAJO','RAZONABLE','ALTO'];
 const nz = t => String(t == null ? '' : t).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim().toUpperCase();
+window.kxVRE_OF = VRE_OF;
 window.kxTextoVRE = t => { const x = nz(t); if (!x) return ''; const i = VRE_OF.findIndex(o => nz(o) === x); if (i >= 0) return VRE_OF[i]; const j = x.length >= 12 ? VRE_OF.findIndex(o => nz(o).startsWith(x)) : -1; return j >= 0 ? VRE_OF[j] : String(t).trim(); };
 window.kxNivelNS = t => { const i = VRE_OF.indexOf(window.kxTextoVRE(t)); return i >= 0 ? NIV_OF[i] : ''; };
 const nivelValido = (n, txt, cod) => { const calc = window.kxNivelContrato ? window.kxNivelContrato(cod, txt) : window.kxNivelNS(txt); const v = String(n||'').trim(); if (!v) return calc; if (/^(TOLERABLE|MODERADO|IMPORTANTE|INTOLERABLE)$/i.test(v) && calc) return calc; return v; };

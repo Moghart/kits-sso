@@ -259,21 +259,37 @@ const rfAmbito = (r, f) => f === 'todos' ? true : f === 'declarados' ? !!r.decla
   render();
 })();
 
+const PARTES_GUARDADAS = {};
+/* Aviso fijo "Guardando…" mientras el servidor responde, para que no se apriete dos veces ni se cierre la página a medias. */
+let GUARDANDO = 0;
+function avisoGuardando(d){
+  GUARDANDO = Math.max(0, GUARDANDO + d); let el = document.getElementById('kxGuardando');
+  if (!el){ el = document.createElement('div'); el.id = 'kxGuardando'; el.setAttribute('role','status'); el.style.cssText = 'position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:60;background:var(--nav,#141C27);color:#fff;padding:8px 14px;border-radius:999px;font-size:13px;font-weight:600;box-shadow:0 4px 14px rgba(0,0,0,.25);display:none'; el.textContent = 'Guardando…'; document.body.appendChild(el); }
+  el.style.display = GUARDANDO ? 'block' : 'none';
+}
 async function guardar(){
   if (!db || !S.cur) return;
+  avisoGuardando(1); try { await guardarKit(); } finally { avisoGuardando(-1); }
+}
+async function guardarKit(){
   S.cur.actualizado = new Date().toISOString();
   try {
     // La MIPER y el procedimiento pueden pasar el máximo de 256 KB por documento: se guardan aparte, en trozos.
-    const o = JSON.parse(JSON.stringify(S.cur)); o._partes = {};
+    // Solo se reescriben las partes que cambiaron, y los trozos van en paralelo (cada llamada al servidor tarda 1 a 2 s).
+    const o = JSON.parse(JSON.stringify(S.cur)); o._partes = {}; const envios = [];
     for (const parte of ['miper','proc','mapaB64','revisionExt']){
       if (!o[parte]) continue;
-      const txt = JSON.stringify(o[parte]); const n = Math.ceil(txt.length / 80000);
-      for (let i = 0; i < n; i++) await db.doc('kitpartes/' + o.id + '__' + parte + '__' + i).set({ kit: o.id, parte, i, n, s: txt.slice(i*80000, (i+1)*80000) });
+      const txt = JSON.stringify(o[parte]); const n = Math.ceil(txt.length / 80000); const clave = o.id + '__' + parte;
+      if (PARTES_GUARDADAS[clave] !== txt){
+        for (let i = 0; i < n; i++) envios.push(db.doc('kitpartes/' + clave + '__' + i).set({ kit: o.id, parte, i, n, s: txt.slice(i*80000, (i+1)*80000) }));
+        envios.push(Promise.resolve().then(() => { PARTES_GUARDADAS[clave] = txt; }));
+      }
       o._partes[parte] = n;
       if (parte === 'mapaB64') o.mapaB64 = null; else if (parte === 'revisionExt') o.revisionExt = { _aparte: true }; else if (parte === 'miper'){ o._mcodigos = [...new Set(o.miper.map(f => f.codigo))]; o.miper = { _aparte: true }; } else o.proc = { _aparte: true, bloqueo: o.proc.bloqueo || [] };
     }
+    await Promise.all(envios);
     await db.doc('kits/' + o.id).set(o);
-  } catch (e) { S.err = 'No se pudo guardar el kit (' + (e.code || 'error') + '). Sigue disponible mientras no cierres la página.'; render(); }
+  } catch (e) { for (const c of Object.keys(PARTES_GUARDADAS)) if (c.startsWith(S.cur.id + '__')) delete PARTES_GUARDADAS[c]; S.err = 'No se pudo guardar el kit (' + (e.code || 'error') + '). Sigue disponible mientras no cierres la página.'; render(); }
 }
 
 /* ---------- navegación ---------- */
@@ -354,7 +370,7 @@ function vPanel(){
           h('button',{class:'btn sm',onclick:()=>{S.borrarKit=null;render();},text:'Cancelar'}),
           h('button',{class:'btn sm',style:'background:#b3261e;color:#fff;border-color:#b3261e',onclick:()=>borrarKit(k),text:'Sí, borrar'}))
       : h('div',{class:'row'}, h('span',{class:'chip '+est[1],text:est[0]}),
-          h('button',{class:'btn sm',onclick:()=>abrir(k),text:'Abrir'}),
+          h('button',{class:'btn sm',disabled:!!S.abriendo,onclick:()=>abrir(k),text:S.abriendo===k.id?'Abriendo…':'Abrir'}),
           h('button',{class:'btn sm',title:'Cambiar nombre o código. Para corregir tareas, MIPER o procedimiento usa Abrir.',onclick:()=>{S.editKit=k.id;S.borrarKit=null;render();},text:'Editar'}),
           h('button',{class:'btn sm',onclick:()=>{S.borrarKit=k.id;S.editKit=null;render();},text:'Borrar'}));
     lista.append(h('div',{class:'kitrow'},
@@ -365,7 +381,7 @@ function vPanel(){
 }
 async function borrarKit(k){
   try {
-    for (const [parte, n] of Object.entries(k._partes || {})) for (let i = 0; i < n; i++) await db.doc('kitpartes/' + k.id + '__' + parte + '__' + i).delete();
+    await Promise.all(Object.entries(k._partes || {}).flatMap(([parte, n]) => Array.from({ length: n }, (_, i) => db.doc('kitpartes/' + k.id + '__' + parte + '__' + i).delete())));
     await db.doc('kits/' + k.id).delete();
     S.kits = S.kits.filter(x => x.id !== k.id); S.borrarKit = null; S.aviso = 'Kit borrado.'; render();
   } catch(e){ S.borrarKit = null; S.err = 'No se pudo borrar el kit (' + (e.code||'error') + ').'; render(); }
@@ -377,10 +393,7 @@ async function migrarRC(){
   const re = /(?<![A-Za-z])RC(\d\d)/g, tiene = t => /(?<![A-Za-z])RC\d\d/.test(t);
   try {
     for (const k of [...S.kits]){
-      for (const [parte, n] of Object.entries(k._partes || {})) for (let i = 0; i < n; i++){
-        const ref = db.doc('kitpartes/' + k.id + '__' + parte + '__' + i), d = await ref.get();
-        if (d.exists && tiene(d.data().s || '')) await ref.set({ ...d.data(), s: d.data().s.replace(re, 'RF$1') });
-      }
+      // Las partes (MIPER, procedimiento) se convierten al abrir el kit (cargarPartes) y quedan en RF al guardarlo: no se leen todas aquí, porque eso hacía lenta la app.
       const txt = JSON.stringify(k);
       if (tiene(txt)) await db.doc('kits/' + k.id).set(JSON.parse(txt.replace(re, 'RF$1')));
     }
@@ -388,13 +401,19 @@ async function migrarRC(){
 }
 async function cargarPartes(k){
   if (!db || !k._partes) return k;
-  for (const [parte, n] of Object.entries(k._partes)){
-    let txt = ''; for (let i = 0; i < n; i++){ const d = await db.doc('kitpartes/' + k.id + '__' + parte + '__' + i).get(); txt += (d.exists && d.data().s) || ''; }
-    try { k[parte] = JSON.parse(txt.replace(/(?<![A-Za-z])RC(\d\d)/g, 'RF$1')); } catch { k[parte] = null; }
-  }
+  // Todos los trozos se piden a la vez (antes uno tras otro: abrir un kit tardaba varios segundos por trozo).
+  await Promise.all(Object.entries(k._partes).map(async ([parte, n]) => {
+    const ds = await Promise.all(Array.from({ length: n }, (_, i) => db.doc('kitpartes/' + k.id + '__' + parte + '__' + i).get()));
+    const txt = ds.map(d => (d.exists && d.data().s) || '').join('');
+    try { k[parte] = JSON.parse(txt.replace(/(?<![A-Za-z])RC(\d\d)/g, 'RF$1')); if (!/(?<![A-Za-z])RC\d\d/.test(txt)) PARTES_GUARDADAS[k.id + '__' + parte] = JSON.stringify(k[parte]); } catch { k[parte] = null; }
+  }));
   delete k._partes; delete k._mcodigos; return k;
 }
-async function abrir(k){ S.cur = await cargarPartes(JSON.parse(JSON.stringify(k))); S.step = (k.proc || k.miper) ? 3 : k.listado ? 2 : 1; S.tab = 'miper'; go('kit'); }
+async function abrir(k){
+  if (S.abriendo) return; S.abriendo = k.id; render();
+  try { S.cur = await cargarPartes(JSON.parse(JSON.stringify(k))); }
+  catch (e) { S.abriendo = null; S.err = 'No se pudo abrir el kit (' + (e.code||'error') + '). Intenta de nuevo.'; render(); return; }
+  S.abriendo = null; S.step = (k.proc || k.miper) ? 3 : k.listado ? 2 : 1; S.tab = 'miper'; go('kit'); }
 const FECHA = () => new Date().toLocaleDateString('es-CL',{month:'long',year:'numeric'});
 function siguienteCodigo(pref){
   const re = new RegExp('^' + pref.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + '(\\d+)$'); let max = 0;
@@ -786,6 +805,7 @@ function editorFila(f){
       for (const key of Object.keys(antes)) if (antes[key] === despues[key] && key !== 'PxC'){ delete antes[key]; delete despues[key]; }
       k.miper[i] = nf;
     }
+    ok.textContent = 'Guardando…';
     S.corrFila = null; sincronizarRF(k); await guardar(); render();
     registrarCorreccion({ tipo:'miper', tarea: f.tarea_n, antes, despues, motivo: mot.value.trim() });
   };
@@ -1533,9 +1553,8 @@ async function bajarMiperOficial(){
     const xlsm = await window.armarMiperOficial(k, meta, (k.revisionExt && k.revisionExt.mantenerTrans && k.revisionExt.trans) || []);
     const nombre = nombreBase() + '_MIPER_SIGO-F-006.xlsm';
     if (COLECTOR){ S.busy = null; COLECTOR.push([nombre, xlsm]); return; }
-    const paquete = zip([[nombre, new Uint8Array(await xlsm.arrayBuffer())]], 'application/zip');
     S.busy = null; render();
-    await guardarArchivo(nombreBase() + '_MIPER_SIGO-F-006.zip', paquete);
+    await guardarArchivo(nombre, xlsm);
   } catch (e) { S.busy = null; S.err = 'No se pudo armar la MIPER oficial (' + (e.message||'error') + '). El kit queda guardado; avisa al administrador.'; render(); }
 }
 const X = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');

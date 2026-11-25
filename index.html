@@ -185,8 +185,8 @@ table.t td.c{text-align:center;font-variant-numeric:tabular-nums}
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="data.js?v=c7408a01"></script>
-<script src="miper_oficial.js?v=5ec5f470"></script>
+<script src="data.js?v=93bdfc8d"></script>
+<script src="miper_oficial.js?v=aceaab98"></script>
 <script src="mapa.js?v=66bc4c2e"></script>
 <script src="traz.js?v=b4ac1666"></script>
 <script src="revisar.js?v=a7a576a8"></script>
@@ -511,7 +511,8 @@ Responde SOLO con JSON: {"tareas":[{"n":"3","energias":["…"],"linea_fuego":"�
 }
 
 function catalogoTexto(){
-  return D.catalogo.map(c => `${c.cod} | ${c.cat} | pares P,C→Pr,Cr: ${c.pares.map(p=>p.join(',')).join(' / ')} | ej: ${c.ej.slice(0,2).join(' ; ')}`).join('\n');
+  const par = p => typeof p[0] === 'number' ? p.join(',') : 'val_inh "' + p[0] + '|' + window.kxNivelNS(p[0]) + '" → val_res "' + p[1] + '|' + window.kxNivelNS(p[1]) + '"';
+  return D.catalogo.map(c => `${c.cod} | ${c.cat} | pares ${typeof (c.pares[0]||[])[0] === 'number' ? 'P,C→Pr,Cr: ' : '(texto|nivel, cópialos exactos): '}${c.pares.map(par).join(' / ')} | ej: ${c.ej.slice(0,2).join(' ; ')}`).join('\n');
 }
 async function generarMiper(){
   const k = S.cur; S.err = null;
@@ -547,18 +548,20 @@ function construirMiper(filas){
     for (const f of propias) out.push(fila(t, f.codigo, f.peligro, f.P, f.C, f.Pr, f.Cr, f.val_inh, f.val_res, f.medidas, f.jerarquia));
     for (const e of D.entorno){
       const hig = typeof e.inherente[0] !== 'number';
-      out.push(fila(t, e.codigo, e.peligro, hig?null:e.inherente[0], hig?null:e.inherente[1], hig?null:e.residual[0], hig?null:e.residual[1], hig?e.inherente[2]+'|'+e.inherente[3]:null, hig?e.residual[2]+'|'+e.residual[3]:null, e.medidas, e.jerarquia, true));
+      out.push(fila(t, e.codigo, e.peligro, hig?null:e.inherente[0], hig?null:e.inherente[1], hig?null:e.residual[0], hig?null:e.residual[1], hig?e.inherente[2]+'|'+e.inherente[3]:null, hig?e.residual[2]+'|'+e.residual[3]:null, e.medidas, e.jerarquia, true, e.resp));
     }
   }
   return out;
 }
-function fila(t, codigo, peligro, P, C, Pr, Cr, vi, vr, medidas, jer, entorno){
+function fila(t, codigo, peligro, P, C, Pr, Cr, vi, vr, medidas, jer, entorno, resp){
   codigo = String(codigo||'').replace(/_RC(\d\d)/,'_RF$1');
   const cat = (D.catalogo.find(c=>c.cod===codigo)||{}).cat || '';
-  const r = { tarea_n: t.n, tarea: t.tarea, cargo: (t.cargos||[]).join(' / '), dotacion: t.dotacion, codigo: String(codigo||''), cat, peligro: String(peligro||''), medidas: String(medidas||''), jerarquia: String(jer||''), resp: 'ADC / SUPERVISION', entorno: !!entorno };
+  const r = { tarea_n: t.n, tarea: t.tarea, cargo: (t.cargos||[]).join(' / '), dotacion: t.dotacion, codigo: String(codigo||''), cat, peligro: String(peligro||''), medidas: String(medidas||''), jerarquia: String(jer||''), resp: resp || 'ADC / SUPERVISION', entorno: !!entorno };
   P=num(P); C=num(C); Pr=num(Pr); Cr=num(Cr);
-  if (P && C){ r.P=P; r.C=C; r.vep=P*C; r.niv=NIVEL(P*C); } else { const [a,b]=String(vi||'|').split('|'); r.vep=a||''; r.niv=b||''; }
-  if (Pr && Cr){ r.Pr=Pr; r.Cr=Cr; r.vepr=Pr*Cr; r.nivr=NIVEL(Pr*Cr); } else { const [a,b]=String(vr||'|').split('|'); r.vepr=a||''; r.nivr=b||''; }
+  // Higiene / músculo-esquelético: texto oficial completo y nivel (si la IA lo deja vacío se calcula con la tabla NIVELES del formato)
+  const ns = v => { const [a,b] = String(v||'|').split('|'); const t = window.kxTextoVRE(a); const n = String(b||'').trim(); return [t, n && !/^(TOLERABLE|MODERADO|IMPORTANTE|INTOLERABLE|null|undefined)$/i.test(n) ? n : window.kxNivelNS(t)]; };
+  if (P && C){ r.P=P; r.C=C; r.vep=P*C; r.niv=NIVEL(P*C); } else { const [a,b]=ns(vi); r.vep=a; r.niv=b; }
+  if (Pr && Cr){ r.Pr=Pr; r.Cr=Cr; r.vepr=Pr*Cr; r.nivr=NIVEL(Pr*Cr); } else { const [a,b]=ns(vr); r.vepr=a; r.nivr=b; }
   return r;
 }
 function sincronizarRF(k){
@@ -1072,7 +1075,7 @@ function aplicarHallazgo(x){
     for (const tn of c.tareas || []){ const t = k.listado.tareas.find(t => t.n === tn); if (!t) continue;
       for (const e of D.entorno){ if (k.miper.some(f => f.tarea_n === tn && f.codigo.split('_')[0] === e.codigo.split('_')[0])) continue;
         const hig = typeof e.inherente[0] !== 'number';
-        const nf = fila(t, e.codigo, e.peligro, hig?null:e.inherente[0], hig?null:e.inherente[1], hig?null:e.residual[0], hig?null:e.residual[1], hig?e.inherente[2]+'|'+e.inherente[3]:null, hig?e.residual[2]+'|'+e.residual[3]:null, e.medidas, e.jerarquia, true);
+        const nf = fila(t, e.codigo, e.peligro, hig?null:e.inherente[0], hig?null:e.inherente[1], hig?null:e.residual[0], hig?null:e.residual[1], hig?e.inherente[2]+'|'+e.inherente[3]:null, hig?e.residual[2]+'|'+e.residual[3]:null, e.medidas, e.jerarquia, true, e.resp);
         let j = -1; k.miper.forEach((f, i) => { if (f.tarea_n === tn) j = i; }); k.miper.splice(j + 1, 0, nf); agregadas++; } }
     R.cambios.push({ tarea: (c.tareas||[]).length + ' tareas', que: 'Peligros de entorno agregados', antes: 'Sin esos peligros', despues: agregadas + ' filas de entorno (guía MH-0001)', h: n });
     return true;

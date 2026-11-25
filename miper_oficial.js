@@ -54,13 +54,13 @@ const NIV_OF = ['NIVEL 1','NIVEL 2','NIVEL 3','NIVEL 4','NIVEL 1','NIVEL 4','BAJ
 const nz = t => String(t == null ? '' : t).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim().toUpperCase();
 window.kxTextoVRE = t => { const x = nz(t); if (!x) return ''; const i = VRE_OF.findIndex(o => nz(o) === x); if (i >= 0) return VRE_OF[i]; const j = x.length >= 12 ? VRE_OF.findIndex(o => nz(o).startsWith(x)) : -1; return j >= 0 ? VRE_OF[j] : String(t).trim(); };
 window.kxNivelNS = t => { const i = VRE_OF.indexOf(window.kxTextoVRE(t)); return i >= 0 ? NIV_OF[i] : ''; };
-const nivelValido = (n, txt) => { const v = String(n||'').trim(); if (!v) return window.kxNivelNS(txt); if (/^(TOLERABLE|MODERADO|IMPORTANTE|INTOLERABLE)$/i.test(v) && window.kxNivelNS(txt)) return window.kxNivelNS(txt); return v; };
+const nivelValido = (n, txt, cod) => { const calc = window.kxNivelContrato ? window.kxNivelContrato(cod, txt) : window.kxNivelNS(txt); const v = String(n||'').trim(); if (!v) return calc; if (/^(TOLERABLE|MODERADO|IMPORTANTE|INTOLERABLE)$/i.test(v) && calc) return calc; return v; };
 function celdasFila(f){
   const d = { I: f.peligro, J: f.cat, K: f.codigo, P: limpiarMedidas(f.medidas, f.codigo), Q: jerOficial(f.jerarquia), V: f.resp || 'ADC / SUPERVISIÓN' };
   if (f.P && f.C){ Object.assign(d, { L: f.P, M: f.C, N: f.vep, O: f.niv }); }
-  else { const t = window.kxTextoVRE(f.vep); Object.assign(d, { L: 'NA', M: 'NA', N: t, O: nivelValido(f.niv, t) }); }
+  else { const t = window.kxTextoVRE(f.vep); Object.assign(d, { L: 'NA', M: 'NA', N: t, O: nivelValido(f.niv, t, f.codigo) }); }
   if (f.Pr && f.Cr){ Object.assign(d, { R: f.Pr, S: f.Cr, T: f.vepr, U: f.nivr }); }
-  else { const t = window.kxTextoVRE(f.vepr); Object.assign(d, { R: 'NA', S: 'NA', T: t, U: nivelValido(f.nivr, t) }); }
+  else { const t = window.kxTextoVRE(f.vepr); Object.assign(d, { R: 'NA', S: 'NA', T: t, U: nivelValido(f.nivr, t, f.codigo) }); }
   return d;
 }
 

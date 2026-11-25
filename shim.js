@@ -91,6 +91,18 @@ css.textContent = `
 #kxAdm .row{display:flex;gap:8px;flex-wrap:wrap;align-items:end} #kxAdm .row>*{flex:1 1 160px}
 #kxAdm button{padding:8px 12px;border-radius:8px;border:1px solid #d6d2c8;background:#fff;cursor:pointer} #kxAdm button.pri{background:#c2410c;color:#fff;border-color:#c2410c}
 `;
+css.textContent += `
+@media (max-width:640px){
+#kxLogin input,#kxAdm input{font-size:16px} #kxLogin a{padding:10px 6px;margin-top:6px}
+#kxAdm{padding:10px;align-items:flex-end}
+#kxAdm .bx{padding:18px 16px;max-height:92dvh;border-radius:16px}
+#kxAdm button{min-height:42px}
+#kxAdm table,#kxAdm tbody,#kxAdm tr,#kxAdm td{display:block;width:100%}
+#kxAdm thead{display:none}
+#kxAdm tr{border-bottom:1px solid #eee;padding:8px 0}
+#kxAdm td{border:0;padding:2px 0;white-space:normal!important;overflow-wrap:anywhere}
+#kxAdm td button{margin:6px 6px 0 0}
+}`;
 document.head.appendChild(css);
 const el = (t, a, ...k) => { const e = document.createElement(t); for (const [x, v] of Object.entries(a || {})){ if (x === 'text') e.textContent = v; else if (x.startsWith('on')) e.addEventListener(x.slice(2), v); else e.setAttribute(x, v); } e.append(...k); return e; };
 function salir(expiro){ if (!expiro && token) call('logout', token).catch(() => {}); token = null; try { localStorage.removeItem('kitsso-token'); } catch (_) {} location.reload(); }
@@ -147,7 +159,7 @@ function barra(){
   if (yo.admin) b.append(el('button', { text: 'Usuarios', onclick: panelUsuarios }));
   b.append(el('button', { text: 'Cambiar contraseña', onclick: panelClave }));
   b.append(el('button', { text: 'Salir (' + yo.email + ')', onclick: () => salir(false) }));
-  document.body.appendChild(b);
+  (document.querySelector('nav.side') || document.body).appendChild(b);
 }
 async function panelUsuarios(recien){
   document.getElementById('kxAdm')?.remove();

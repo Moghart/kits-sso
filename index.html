@@ -185,7 +185,7 @@ table.t td.c{text-align:center;font-variant-numeric:tabular-nums}
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="data.js?v=4bc65fe4"></script>
+<script src="data.js?v=89115d8a"></script>
 <script src="miper_oficial.js?v=5cbd3520"></script>
 <script src="mapa.js?v=66bc4c2e"></script>
 <script src="traz.js?v=b4ac1666"></script>
@@ -251,7 +251,7 @@ const rfAmbito = (r, f) => f === 'todos' ? true : f === 'declarados' ? !!r.decla
   if (!window.claude) return;
   [db, sample, downloads] = await Promise.all(['db','sample','downloads'].map(n => window.claude.use(n).catch(() => null)));
   if (db) db.collection('catalogo_rf').onSnapshot(snap => { for (const d of snap.docs){ const v = d.data(); if (v && v.codigo && Array.isArray(v.preventivos)) D.rfcat[v.codigo] = { ...v, titulo: v.nombre, editado: v.editado || 'db' }; } rfNombres(); if (S.view === 'biblioteca') render(); }, () => {});
-  if (db) db.collection('peligros_nf').onSnapshot(snap => { NF = {}; for (const d of snap.docs){ const v = d.data(); if (v && v.codigo) NF[d.id] = v; } aplicarNF(); if (S.view === 'nofatales') render(); }, () => {});
+  if (db) db.collection('peligros_nf').onSnapshot(snap => { NF = {}; for (const d of snap.docs){ const v = d.data(); if (v && v.codigo) NF[d.id] = tieneRC(JSON.stringify(v)) ? JSON.parse(rcAFrf(JSON.stringify(v))) : v; } aplicarNF(); if (S.view === 'nofatales') render(); }, () => {});
   if (db) db.collection('config').onSnapshot(snap => { const d = snap.docs.find(x => x.id === 'contrato'); S.contrato = d ? d.data() : null; if (S.view === 'contrato') render(); }, () => {});
   if (db) db.collection('correcciones').onSnapshot(snap => { CORR = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => (b.fecha||'').localeCompare(a.fecha||'')); if (S.view === 'aprendizaje') render(); }, () => {});
   if (db) db.collection('aprendizajes').onSnapshot(snap => { APR = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => (b.creado||'').localeCompare(a.creado||'')); if (S.view === 'aprendizaje') render(); }, () => {});
@@ -387,15 +387,22 @@ async function borrarKit(k){
   } catch(e){ S.borrarKit = null; S.err = 'No se pudo borrar el kit (' + (e.code||'error') + ').'; render(); }
 }
 /* Kits creados con códigos RC (obsoletos): se pasan a RF una sola vez, en la base de datos. */
+/* Textos RC → RF sobre JSON: "RC22", "RC 22" y los nombres antiguos de los controles del RF22 (SIGO-G-012). */
+const RC_TEXTOS = [
+  ['RC 22 Pérdida de control de estructuras para tránsito y uso de personas', 'RF22 Falla de estructuras para tránsito y uso de personas'],
+  ['Control Crítico Preventivo:\\nCCP3: Inspección y Mantenimiento de Estructuras para Tránsito y Uso de Personas', 'Controles Críticos Preventivos:\\nCCP2: Inspección visual para identificar condiciones de riesgo a las personas en ETP\\nCCP3: Restitución de funcionalidad segura y conservación de las ETP operativas'],
+  ['CCP3: Inspección y Mantenimiento de Estructuras para Tránsito y Uso de Personas', 'CCP3: Restitución de funcionalidad segura y conservación de las ETP operativas'],
+  ['CCM1: Señalización y Segregación en Vanos y/o Daños Estructurales', 'CCM1: Segregación física y señalización de ETP con vanos abiertos o condiciones de riesgo']];
+const RC_RE = /(?<![A-Za-z])RC ?(\d\d)(?!\d)/g, tieneRC = t => /(?<![A-Za-z])RC ?\d\d(?!\d)/.test(t) || RC_TEXTOS.some(([a]) => t.includes(a));
+function rcAFrf(t){ for (const [a, b] of RC_TEXTOS) t = t.split(a).join(b); return t.replace(RC_RE, 'RF$1'); }
 let migrandoRC = false;
 async function migrarRC(){
   if (migrandoRC || !db) return; migrandoRC = true;
-  const re = /(?<![A-Za-z])RC(\d\d)/g, tiene = t => /(?<![A-Za-z])RC\d\d/.test(t);
   try {
     for (const k of [...S.kits]){
       // Las partes (MIPER, procedimiento) se convierten al abrir el kit (cargarPartes) y quedan en RF al guardarlo: no se leen todas aquí, porque eso hacía lenta la app.
       const txt = JSON.stringify(k);
-      if (tiene(txt)) await db.doc('kits/' + k.id).set(JSON.parse(txt.replace(re, 'RF$1')));
+      if (tieneRC(txt)) await db.doc('kits/' + k.id).set(JSON.parse(rcAFrf(txt)));
     }
   } catch (e) { migrandoRC = false; }
 }
@@ -405,7 +412,7 @@ async function cargarPartes(k){
   await Promise.all(Object.entries(k._partes).map(async ([parte, n]) => {
     const ds = await Promise.all(Array.from({ length: n }, (_, i) => db.doc('kitpartes/' + k.id + '__' + parte + '__' + i).get()));
     const txt = ds.map(d => (d.exists && d.data().s) || '').join('');
-    try { k[parte] = JSON.parse(txt.replace(/(?<![A-Za-z])RC(\d\d)/g, 'RF$1')); if (!/(?<![A-Za-z])RC\d\d/.test(txt)) PARTES_GUARDADAS[k.id + '__' + parte] = JSON.stringify(k[parte]); } catch { k[parte] = null; }
+    try { k[parte] = JSON.parse(rcAFrf(txt)); if (!tieneRC(txt)) PARTES_GUARDADAS[k.id + '__' + parte] = JSON.stringify(k[parte]); } catch { k[parte] = null; }
   }));
   delete k._partes; delete k._mcodigos; return k;
 }
